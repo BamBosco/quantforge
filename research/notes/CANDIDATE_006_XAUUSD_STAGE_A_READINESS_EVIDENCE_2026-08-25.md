@@ -33,11 +33,12 @@ percentile 40, 99th percentile 54, maximum 2,127) and it is explicitly not
 tick sequencing or fill evidence.  It therefore cannot set a Dukascopy spread
 limit or execution-deviation limit.
 
-The XAUUSD intraday-volatility study passed its initial non-trading forecast
-gate only.  Its independent-confirmation protocol requires a new, non-
-overlapping Dukascopy M1 export with at least 100 valid sessions.  The study
-does not establish direction, position size, risk budget, execution quality,
-or paper-trading authority.
+The XAUUSD intraday-volatility study now has a checksum-verified, cross-venue
+Dukascopy replication: 772 valid sessions after the documented zero-spread
+exclusions, with 16.05% development and 24.73% holdout MAE reductions.  This
+resolves the offline volatility-replication evidence item only.  It does not
+establish direction, position size, risk budget, execution quality, or
+paper-trading authority.
 
 The historical directional ORB and intraday-momentum candidates did not supply
 a promoted XAUUSD directional strategy.  No approved strategy therefore
@@ -73,6 +74,31 @@ without that audited input.
 | Execution deviation | Read-only observations contain quotes but no fill, latency, reject, or slippage outcomes. | Non-live, reproducible execution-quality evidence with defined reference price, latency window, adverse movement/slippage scenarios, and broker-specific validation. |
 | Stop/freeze handling | Current values are observed dynamically, but no policy says how a request must respond if they change. | A fail-closed runtime rule and tests that bind each request to fresh observed values; this follows, rather than replaces, the missing strategy and sizing evidence. |
 | Scheduled-event control | The policy has no provider-backed, immutable calendar input. | A provider adapter mapping immutable IDs to canonical events, stored snapshots, freshness enforcement, and tests. |
+
+## Policy-evidence disposition after Dukascopy replication
+
+The replication raw export contains 772 complete New York 08:20–13:29 session
+windows with positive recorded M1 spreads.  Within those windows, the observed
+spread-point distribution is: median 297, 90th percentile 506, 95th percentile
+567, 99th percentile 700, and maximum 3,690.  These are descriptive historical
+bar values, not fills or contemporaneous quote acceptance outcomes.  They do
+not justify choosing a maximum-spread threshold, because no promoted XAUUSD
+strategy specifies its cost tolerance or adverse-spread response.
+
+The same data establishes that the study window can be observed across many
+New York weekdays.  It does not establish a trading-session policy: it has no
+durable broker trading-hours contract, rollover/holiday handling, or strategy
+eligibility rule.
+
+The receipt-linked read-only evidence contains broker contract facts and
+quotes, but no orders, fills, latency, rejection, or slippage result.  It
+therefore cannot support an execution-deviation policy.  Broker lot bounds
+likewise remain implementation constraints rather than a risk budget or
+maximum-position mandate.
+
+Accordingly, no XAUUSD spread, session, risk/exposure, or execution-deviation
+configuration is created by this update.  Each remains deliberately
+fail-closed, and Candidate 006 remains ineligible for Stage A.
 
 ## Stage A boundary
 

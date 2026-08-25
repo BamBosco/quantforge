@@ -60,6 +60,31 @@ def test_observation_uses_only_predeclared_close_to_close_windows() -> None:
     )
 
 
+def test_observation_excludes_a_complete_window_with_spreadless_bar() -> None:
+    study_settings = settings(predictor_end=time(8, 22), outcome_end=time(8, 25))
+    timezone = ZoneInfo("America/New_York")
+    start = datetime(2026, 8, 14, 8, 20, tzinfo=timezone)
+    bars = [
+        MinuteBar(
+            timestamp=start + timedelta(minutes=index),
+            open=Decimal("10"),
+            high=Decimal("10"),
+            low=Decimal("10"),
+            close=Decimal("10"),
+            tick_volume=1,
+            spread_points=0 if index == 2 else 1,
+        )
+        for index in range(5)
+    ]
+
+    observations, excluded = build_volatility_observations(
+        bars, settings=study_settings, excluded_session_days=frozenset()
+    )
+
+    assert observations == ()
+    assert excluded == 1
+
+
 def test_predictor_terciles_can_beat_baseline_without_trading_authority() -> None:
     observations = tuple(
         VolatilityObservation(

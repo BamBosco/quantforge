@@ -194,7 +194,9 @@ def _build_observation(
     window = complete_minute_window(
         bars, start=start, end=outcome_end - timedelta(minutes=1)
     )
-    if window is None:
+    if window is None or any(
+        bar.spread_points is None or bar.spread_points <= 0 for bar in window
+    ):
         return None
     closes = {bar.timestamp.astimezone(timezone): bar.close for bar in window}
     predictor_closes = tuple(

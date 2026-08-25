@@ -24,17 +24,21 @@ proposal nor the project's prohibition on execution.
 
 | Measure | Result |
 | --- | ---: |
-| Valid complete New York weekday observations | 778 |
-| Excluded sessions | 17 |
+| Valid complete New York weekday observations | 772 |
+| Excluded sessions | 23 |
 | Development scored sessions | 315 |
-| Development MAE reduction | 16.87% |
-| Holdout scored sessions | 156 |
-| Holdout MAE reduction | 24.60% |
+| Development MAE reduction | 16.05% |
+| Holdout scored sessions | 155 |
+| Holdout MAE reduction | 24.73% |
 | Development windows meeting 5% reduction | 5 of 5 |
 | Frozen offline-study gate | PASS |
 
 The study uses only M1 close-to-close movement. It contains no orders, fills,
 positions, P&L, execution-quality calculation, or trading authority.
+
+The runner excludes any otherwise complete session containing a zero/absent
+recorded spread. Six such sessions were found during the policy-evidence
+validation and are included in the exclusion count above.
 
 ## Scope
 

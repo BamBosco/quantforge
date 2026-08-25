@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import math
 import tomllib
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -55,7 +54,7 @@ def _decimal(value: Any, name: str) -> Decimal:
         raise XAUUSDRiskPolicyConfigurationError(
             f"{name} must be a finite number"
         ) from error
-    if not decimal.is_finite() or not math.isfinite(float(decimal)):
+    if not decimal.is_finite():
         raise XAUUSDRiskPolicyConfigurationError(
             f"{name} must be a finite number"
         )

@@ -158,9 +158,7 @@ class SQLiteXAUUSDBrokerProfileAudit:
                     source_event_id INTEGER NOT NULL UNIQUE,
                     observed_at_utc TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
-                    created_at_utc TEXT NOT NULL,
-                    FOREIGN KEY (source_event_id)
-                        REFERENCES xauusd_broker_metadata_observation(source_event_id)
+                    created_at_utc TEXT NOT NULL
                 )
                 """
             )
@@ -171,7 +169,9 @@ class SQLiteXAUUSDBrokerProfileAudit:
                     source_event_id INTEGER NOT NULL UNIQUE,
                     risk_status TEXT NOT NULL,
                     risk_decision_json TEXT NOT NULL,
-                    created_at_utc TEXT NOT NULL
+                    created_at_utc TEXT NOT NULL,
+                    FOREIGN KEY (source_event_id)
+                        REFERENCES xauusd_broker_metadata_observation(source_event_id)
                 )
                 """
             )

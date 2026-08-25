@@ -15,9 +15,8 @@ def test_xauusd_uses_a_separate_read_only_scope() -> None:
         root / "config" / "candidate_006_xauusd_read_only.toml"
     )
     assert profile.internal_symbol == profile.broker_symbol == "XAUUSD"
-    assert (
-        profile.audit_journal_path == "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
-    )
+    assert profile.timeframe == "M1"
+    assert profile.audit_journal_path == "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
     assert profile.order_submission_enabled is False
 
 
@@ -59,6 +58,28 @@ def test_xauusd_rejects_usdjpy_risk_policy_fields(
     path = tmp_path / "profile.toml"
     path.write_text(text + f"\n[risk]\n{usd_jpy_policy}\n")
     with pytest.raises(ForexMT5DemoConfigurationError, match="cannot inherit risk"):
+        load_xauusd_read_only_broker_profile(path)
+
+
+@pytest.mark.parametrize(
+    "broker_fact",
+    (
+        "digits = 2",
+        "point = 0.01",
+        "contract_size = 100",
+        "volume_min = 0.01",
+        "volume_max = 100",
+        "volume_step = 0.01",
+    ),
+)
+def test_xauusd_broker_facts_must_come_from_mt5_observations(
+    tmp_path: Path, broker_fact: str
+) -> None:
+    root = Path(__file__).parents[2]
+    text = (root / "config" / "candidate_006_xauusd_read_only.toml").read_text()
+    path = tmp_path / "profile.toml"
+    path.write_text(text.replace('timeframe = "M1"', f'timeframe = "M1"\n{broker_fact}'))
+    with pytest.raises(ForexMT5DemoConfigurationError, match="must be observed"):
         load_xauusd_read_only_broker_profile(path)
 
 

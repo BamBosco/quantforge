@@ -47,13 +47,6 @@ class XAUUSDReadOnlyBrokerProfile:
     internal_symbol: str
     broker_symbol: str
     timeframe: str
-    digits: int
-    point: float
-    contract_size: float
-    volume_min: float
-    volume_max: float
-    volume_step: float
-    filling_mode: str
     account_currency: str
     demo_only: bool
     order_submission_enabled: bool
@@ -256,13 +249,6 @@ def load_xauusd_read_only_broker_profile(path: Path) -> XAUUSDReadOnlyBrokerProf
         internal_symbol=_string(instrument, "internal_symbol"),
         broker_symbol=_string(instrument, "broker_symbol"),
         timeframe=_string(instrument, "timeframe"),
-        digits=_integer(instrument, "digits", minimum=1),
-        point=float(instrument.get("point", 0)),
-        contract_size=float(instrument.get("contract_size", 0)),
-        volume_min=float(instrument.get("volume_min", 0)),
-        volume_max=float(instrument.get("volume_max", 0)),
-        volume_step=float(instrument.get("volume_step", 0)),
-        filling_mode=_string(execution, "filling_mode"),
         account_currency=_string(account, "currency"),
         demo_only=_boolean(account, "demo_only"),
         order_submission_enabled=_boolean(execution, "order_submission_enabled"),
@@ -273,19 +259,24 @@ def load_xauusd_read_only_broker_profile(path: Path) -> XAUUSDReadOnlyBrokerProf
         profile.internal_symbol != "XAUUSD"
         or profile.broker_symbol != "XAUUSD"
         or profile.timeframe != "M1"
-        or profile.digits != 3
-        or profile.point != 0.001
-        or profile.contract_size != 100.0
-        or profile.volume_min != 0.01
-        or profile.volume_max != 10000.0
-        or profile.volume_step != 0.01
-        or profile.filling_mode != "immediate_or_cancel"
         or profile.account_currency != "USD"
         or not profile.demo_only
         or profile.order_submission_enabled
     ):
         raise ForexMT5DemoConfigurationError(
             "XAUUSD read-only broker contract is invalid"
+        )
+    observed_broker_fields = {
+        "digits",
+        "point",
+        "contract_size",
+        "volume_min",
+        "volume_max",
+        "volume_step",
+    }
+    if observed_broker_fields.intersection(instrument) or "filling_mode" in execution:
+        raise ForexMT5DemoConfigurationError(
+            "XAUUSD broker facts must be observed through the read-only MT5 bridge"
         )
     if "usdjpy" in profile.audit_journal_path.lower():
         raise ForexMT5DemoConfigurationError(

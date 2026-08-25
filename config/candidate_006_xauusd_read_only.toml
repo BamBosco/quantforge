@@ -2,19 +2,15 @@
 internal_symbol = "XAUUSD"
 broker_symbol = "XAUUSD"
 timeframe = "M1"
-digits = 3
-point = 0.001
-contract_size = 100.0
-volume_min = 0.01
-volume_max = 10000.0
-volume_step = 0.01
+# Broker contract facts (digits, point, contract size, volume bounds, tick
+# values, filling modes, and trading constraints) are observed through MT5
+# and appended to the Candidate 006 audit. They are deliberately not configured.
 
 [account]
 currency = "USD"
 demo_only = true
 
 [execution]
-filling_mode = "immediate_or_cancel"
 order_submission_enabled = false
 
 [logging]

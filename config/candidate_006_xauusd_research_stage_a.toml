@@ -1,0 +1,37 @@
+# Candidate 006 XAUUSD — provisional, research-only Stage A profile.
+# This profile is a data-only simulation boundary. It must never submit an order.
+
+[identity]
+candidate_id = "candidate_006_xauusd"
+classification = "provisional_research_only"
+
+[execution]
+live_trading_enabled = false
+order_submission_enabled = false
+stage_a_send_allowed = false
+# No fill/slippage evidence exists. Exact quote matching is the only safe cap.
+deviation_points = 0
+
+[spread]
+# Source: checksum-verified Dukascopy M1 replication, positive-spread 08:20–13:29
+# America/New_York windows. 99.5th percentile = 760 points; this is a provisional
+# rejection cap, not a claim of execution quality or a promoted trading policy.
+maximum_spread_points = 760
+
+[risk]
+# Owner-directed provisional research cap. The observed $10,000 demo equity makes
+# this a $10 maximum risk budget; it is not strategy performance evidence.
+risk_per_trade = 0.001
+# Source: observed Dukascopy volume_min and volume_step of 0.01. One minimum lot.
+maximum_position_size = 0.01
+
+[session]
+# Source: the completed study window, not a broker-authoritative trading-hours claim.
+timezone = "America/New_York"
+start = "08:20"
+end = "13:30"
+
+[review]
+# Expire for review if broker sessions, a strategy, calendar input, or execution
+# evidence has not been supplied by this point.
+review_by_utc = "2026-09-02T00:00:00+00:00"

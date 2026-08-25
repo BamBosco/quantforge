@@ -2,8 +2,9 @@
 
 ## Decision
 
-**Candidate 006 remains a read-only, non-executable observation and audit
-path.  Stage A and readiness are not eligible to be configured yet.**
+**Candidate 006 remains a non-executable observation and audit path.** A
+separate provisional research Stage A constructor is now permitted; readiness
+and any executable Stage A remain ineligible.
 
 This assessment records the boundary after live XAUUSD bridge evidence became
 available.  It does not create a risk policy, a trade intent, a Stage-A
@@ -107,10 +108,11 @@ constructor.  Its configuration loader deliberately accepts only the USDJPY
 Candidate 005 profile.  It must not be repurposed for XAUUSD by copying USDJPY
 risk, spread, session, or deviation values.
 
-An XAUUSD Stage-A profile can be designed only after every applicable row above
-has independently satisfied its promotion evidence.  It must retain
-`live_trading_enabled = false`, `order_submission_enabled = false`, and the
-`prohibited_stage_a` submission status.
+The provisional research-only profile is documented in
+[`CANDIDATE_006_XAUUSD_PROVISIONAL_RESEARCH_STAGE_A_2026-08-26.md`](CANDIDATE_006_XAUUSD_PROVISIONAL_RESEARCH_STAGE_A_2026-08-26.md).
+It retains `live_trading_enabled = false`, `order_submission_enabled = false`,
+and the `prohibited_stage_a` submission status. An executable XAUUSD Stage-A
+profile still requires every applicable evidence row above.
 
 ## Readiness boundary
 

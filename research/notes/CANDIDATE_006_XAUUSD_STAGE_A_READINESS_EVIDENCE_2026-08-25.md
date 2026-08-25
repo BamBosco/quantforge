@@ -98,6 +98,20 @@ policy evidence above.  It must remain an unclaimed, non-executable marker.
 ## Next permitted action
 
 Collect the listed evidence under immutable provenance and update the relevant
-policy through the existing validation and review path.  Until then,
+policy through the existing validation and review path.  The receipt-linked
+live collection command is:
+
+```zsh
+PYTHONPATH="$PWD/src" .venv/bin/python tools/export_candidate_006_evidence.py \
+  --observations data/mt5_observations.sqlite3 \
+  --audit data/candidate_006_xauusd/xauusd_m1_demo.sqlite3 \
+  --destination data/candidate_006_xauusd/<new-evidence-package>
+```
+
+It accepts only schema-v2, accepted XAUUSD receipts whose independently stored
+Candidate 006 audit payload exactly matches the bridge receipt; it freezes a
+JSONL package and SHA-256 manifest without deriving policy.  Independent
+historical confirmation data must continue through the existing
+`freeze_research_dataset.py` raw-export procedure.  Until then,
 `config/candidate_006_xauusd_read_only.toml` must retain every unresolved
 requirement and Candidate 006 must remain fail-closed.

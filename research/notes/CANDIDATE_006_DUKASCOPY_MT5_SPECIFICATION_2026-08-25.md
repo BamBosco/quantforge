@@ -36,10 +36,12 @@ No order was submitted, modified, or closed to obtain this record.
 | Margin rate | 2.000000 initial and maintenance; approximately USD 9,284–9,288/lot displayed |
 
 The screenshots show a floating spread and variable long/short swap values.
-The chart view is `XAUUSD,H1`, with a visible chart-price label of 4643.985
-at capture. These values are observations at capture time, not research
-parameters or policy inputs. The H1 view does not satisfy Candidate 006's
-required M1 observation contract.
+A later screenshot establishes an `XAUUSD,M1` chart. It visibly reports one
+closed-bar record as `2026.08.25 18:12`, open 4633.205, high 4635.245, low
+4633.205, close 4634.195, and tick volume 225. The chart's visible price label
+is 4645.335. These values are observations at capture time, not research
+parameters or policy inputs. The screenshot does not show an ask quote or an
+unambiguous UTC/server timestamp for a fresh bridge receipt.
 
 ## Deliberately unavailable
 

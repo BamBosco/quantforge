@@ -2,10 +2,15 @@
 
 ## Status
 
-**Prepared; awaiting an independent dataset.** This protocol follows the
+**Superseded for project closeout by the existing Dukascopy replication.** This protocol follows the
 initial pass recorded in
 [`XAUUSD_INTRADAY_VOLATILITY_REGIME_2026-08-14.md`](../results/XAUUSD_INTRADAY_VOLATILITY_REGIME_2026-08-14.md).
 It is not an authority to change the Risk Engine or trade.
+
+The reproduced result is recorded in
+[`XAUUSD_INTRADAY_VOLATILITY_REGIME_DUKASCOPY_REPLICATION_2026-08-25.md`](../results/XAUUSD_INTRADAY_VOLATILITY_REGIME_DUKASCOPY_REPLICATION_2026-08-25.md).
+The remaining rules below are retained as the optional, stricter future-data
+protocol; they are not a current project-completion gate.
 
 ## Required independent data
 

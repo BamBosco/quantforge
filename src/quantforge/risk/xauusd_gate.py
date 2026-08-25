@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import ROUND_DOWN, Decimal
+from decimal import ROUND_DOWN, Decimal, InvalidOperation
 from typing import Any
 
 
@@ -100,7 +100,7 @@ def _validate(
         minimum = _decimal(metadata["volume_min"])
         maximum = _decimal(metadata["volume_max"])
         step = _decimal(metadata["volume_step"])
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, InvalidOperation):
         return [*reasons, "invalid XAUUSD broker risk metadata"]
     direction = intent.get("direction")
     if direction == "BUY" and not stop < entry < target:
@@ -109,14 +109,16 @@ def _validate(
         reasons.append("invalid SELL protective levels")
     elif direction not in {"BUY", "SELL"}:
         reasons.append("direction must be BUY or SELL")
+    if entry == stop:
+        reasons.append("entry and stop_loss must differ")
     if tick_size <= 0 or tick_value_loss <= 0:
         reasons.append("invalid XAUUSD tick risk metadata")
     if minimum <= 0 or maximum < minimum or step <= 0:
         reasons.append("invalid XAUUSD broker volume metadata")
     if equity <= 0:
         reasons.append("account equity must be positive")
-    if policy.risk_per_trade is not None and policy.risk_per_trade <= 0:
-        reasons.append("risk-per-trade policy must be positive")
+    if policy.risk_per_trade is not None and not 0 < policy.risk_per_trade <= 1:
+        reasons.append("risk-per-trade policy must be greater than zero and at most one")
     if policy.maximum_position_size is not None and policy.maximum_position_size <= 0:
         reasons.append("maximum-position policy must be positive")
     return reasons

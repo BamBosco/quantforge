@@ -146,7 +146,7 @@ class SQLiteXAUUSDBrokerProfileAudit:
     def __init__(self, database_path: str | Path) -> None:
         path = Path(database_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(path)
+        self._connection = sqlite3.connect(path, check_same_thread=False)
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._bootstrap()
 
@@ -242,18 +242,18 @@ class SQLiteXAUUSDBrokerProfileAudit:
         with self._connection:
             try:
                 self._connection.execute(
-                """
-                INSERT INTO xauusd_risk_decision (
-                    source_event_id, risk_status, risk_decision_json, created_at_utc
-                ) VALUES (?, ?, ?, ?)
-                """,
-                (
-                    source_event_id,
-                    risk_status,
-                    json.dumps(risk_decision, sort_keys=True, separators=(",", ":")),
-                    datetime.now(UTC).isoformat(),
-                ),
-            )
+                    """
+                    INSERT INTO xauusd_risk_decision (
+                        source_event_id, risk_status, risk_decision_json, created_at_utc
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        source_event_id,
+                        risk_status,
+                        json.dumps(risk_decision, sort_keys=True, separators=(",", ":")),
+                        datetime.now(UTC).isoformat(),
+                    ),
+                )
             except sqlite3.IntegrityError as error:
                 raise XAUUSDBrokerProfileAuditError(
                     "source observation already has a risk decision"

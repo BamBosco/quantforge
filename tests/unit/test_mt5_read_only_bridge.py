@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from http.client import HTTPConnection
 from pathlib import Path
@@ -11,6 +11,9 @@ from threading import Thread
 
 from quantforge.application.experimental_paper_demo import demo_observation
 from quantforge.infrastructure.mt5.read_only_bridge import MT5Snapshot, create_server
+from quantforge.infrastructure.mt5.xauusd_broker_profile_audit import (
+    SQLiteXAUUSDBrokerProfileAudit,
+)
 
 
 def _payload() -> dict[str, object]:
@@ -39,6 +42,56 @@ def _payload() -> dict[str, object]:
         "position_count": 0,
         "terminal": {"connected": True, "trade_allowed": True},
     }
+
+
+def _candidate_006_payload(observed_at: datetime) -> dict[str, object]:
+    observation = demo_observation(
+        observed_at=observed_at,
+        bid=Decimal("4645.335"),
+        ask=Decimal("4645.835"),
+    )
+    observation.payload["account"]["server"] = "Dukascopy-demo-mt5-1"
+    observation.payload["candles"]["completed"] = [
+        {
+            "open_time_utc": (observed_at - timedelta(minutes=1)).isoformat(),
+            "open": 4633.205,
+            "high": 4635.245,
+            "low": 4633.205,
+            "close": 4634.195,
+            "tick_volume": 225,
+        }
+    ]
+    observation.payload["instrument"]["specification"].update(
+        {
+            "trade_mode": 4,
+            "order_mode": 127,
+            "stop_level": 0,
+            "freeze_level": 0,
+            "trade_calculation_mode": 1,
+            "profit_currency": "USD",
+            "margin_currency": "XAU",
+            "tick_size": 0.001,
+            "tick_value": 0.1,
+            "tick_value_loss": 0.1,
+            "tick_value_profit": 0.1,
+        }
+    )
+    observation.payload["terminal"]["trade_allowed"] = True
+    return observation.payload
+
+
+def _post_snapshot(port: int, payload: dict[str, object]) -> int:
+    receiver = HTTPConnection("127.0.0.1", port)
+    receiver.request(
+        "POST",
+        "/v1/mt5/snapshots",
+        body=json.dumps(payload),
+        headers={
+            "Authorization": "Bearer test-token",
+            "Content-Type": "application/json",
+        },
+    )
+    return receiver.getresponse().status
 
 
 def test_snapshot_contract_accepts_valid_read_only_facts() -> None:
@@ -168,6 +221,44 @@ def test_bridge_accepts_complete_v2_read_only_observation(tmp_path: Path) -> Non
         assert latest_payload["instrument"]["specification"]["tick_value_loss"] == 0.1
         assert latest_payload["terminal"]["trade_allowed"] is True
     finally:
+        server.shutdown()
+        server.close()
+
+
+def test_bridge_opt_in_persists_only_fresh_complete_candidate_006_receipts(
+    tmp_path: Path,
+) -> None:
+    observation_database = tmp_path / "observations.sqlite3"
+    candidate_audit_database = tmp_path / "candidate_006.sqlite3"
+    server = create_server(
+        "127.0.0.1",
+        0,
+        "test-token",
+        observation_database,
+        candidate_006_audit_path=candidate_audit_database,
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    audit = SQLiteXAUUSDBrokerProfileAudit(candidate_audit_database)
+    port = server.server_address[1]
+    try:
+        valid = _candidate_006_payload(datetime.now(UTC))
+        assert _post_snapshot(port, valid) == 202
+        assert audit.count() == 1
+
+        assert _post_snapshot(port, valid) == 400
+        assert audit.count() == 1
+
+        stale = _candidate_006_payload(datetime.now(UTC) - timedelta(minutes=5))
+        assert _post_snapshot(port, stale) == 400
+        assert audit.count() == 1
+
+        incomplete = _candidate_006_payload(datetime.now(UTC))
+        incomplete["instrument"]["specification"].pop("tick_value_loss")
+        assert _post_snapshot(port, incomplete) == 400
+        assert audit.count() == 1
+    finally:
+        audit.close()
         server.shutdown()
         server.close()
 

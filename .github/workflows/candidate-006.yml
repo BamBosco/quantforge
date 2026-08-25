@@ -21,9 +21,13 @@ jobs:
       - run: >-
           ruff check
           src/quantforge/config/xauusd_policy.py
+          src/quantforge/infrastructure/mt5/candidate_006_bridge_audit.py
+          src/quantforge/infrastructure/mt5/read_only_bridge.py
           src/quantforge/infrastructure/mt5/xauusd_broker_profile_audit.py
           src/quantforge/risk/xauusd_gate.py
+          tests/unit/test_candidate_006_bridge_audit.py
           tests/unit/test_candidate_006_xauusd_profile.py
+          tests/unit/test_mt5_read_only_bridge.py
           tests/unit/test_xauusd_broker_profile_audit.py
           tests/unit/test_xauusd_policy.py
           tests/unit/test_xauusd_risk_gate.py

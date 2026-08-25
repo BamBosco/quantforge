@@ -18,7 +18,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 from .observation_contracts import ObservationEnvelope
 from .candidate_006_bridge_audit import Candidate006BridgeAuditConsumer
@@ -166,6 +166,8 @@ class SnapshotStore:
             return self._latest
 
     def close(self) -> None:
+        if self._candidate_006_consumer is not None:
+            self._candidate_006_consumer.close()
         self._observation_log.close()
 
 

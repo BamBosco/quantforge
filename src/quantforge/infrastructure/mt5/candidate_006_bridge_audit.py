@@ -40,6 +40,10 @@ class Candidate006BridgeAuditConsumer:
         self._audit.append(metadata)
         return Candidate006BridgeAuditResult(receipt.id, True)
 
+    def close(self) -> None:
+        """Close the isolated Candidate 006 audit database."""
+        self._audit.close()
+
     @staticmethod
     def _validate(
         observation: ObservationEnvelope,

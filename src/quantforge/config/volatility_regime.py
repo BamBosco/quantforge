@@ -1,10 +1,10 @@
 """Loading for the frozen XAUUSD intraday-volatility research configuration."""
 
+import tomllib
 from dataclasses import dataclass
 from datetime import time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-import tomllib
 
 from quantforge.analytics.intraday_volatility import VolatilityRegimeSettings
 

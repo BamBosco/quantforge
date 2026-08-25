@@ -20,8 +20,7 @@ def settings() -> OrbSimulationSettings:
 
 def prior_ranges() -> list[OpeningRange]:
     return [
-        OpeningRange(Decimal("101"), Decimal("99"), Decimal("100"))
-        for _ in range(10)
+        OpeningRange(Decimal("101"), Decimal("99"), Decimal("100")) for _ in range(10)
     ]
 
 

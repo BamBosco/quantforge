@@ -81,9 +81,11 @@ class Portfolio:
         current_price = current.average_open_price if current else fill.price
         realized = current.realized_pnl if current else Decimal("0")
 
-        closing_quantity = min(abs(current_quantity), abs(signed_quantity)) if (
-            current_quantity and current_quantity * signed_quantity < 0
-        ) else Decimal("0")
+        closing_quantity = (
+            min(abs(current_quantity), abs(signed_quantity))
+            if (current_quantity and current_quantity * signed_quantity < 0)
+            else Decimal("0")
+        )
         if closing_quantity:
             direction = Decimal("1") if current_quantity > 0 else Decimal("-1")
             realized += closing_quantity * (fill.price - current_price) * direction
@@ -126,14 +128,18 @@ class Portfolio:
     @property
     def equity(self) -> Decimal:
         """Current marked-to-market account equity."""
-        return self.cash + sum(
-            position.quantity
-            * (
-                self.marks.get(instrument, position.average_open_price)
-                - position.average_open_price
+        return (
+            self.cash
+            + sum(
+                position.quantity
+                * (
+                    self.marks.get(instrument, position.average_open_price)
+                    - position.average_open_price
+                )
+                for instrument, position in self.positions.items()
             )
-            for instrument, position in self.positions.items()
-        ) + sum(position.realized_pnl for position in self.positions.values())
+            + sum(position.realized_pnl for position in self.positions.values())
+        )
 
     def risk_snapshot(self, *, correlated_open_risk: Decimal) -> AccountRiskSnapshot:
         """Return the account facts required by the independent risk gate."""

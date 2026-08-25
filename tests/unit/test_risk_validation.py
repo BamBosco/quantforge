@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -21,11 +21,11 @@ def test_rejects_buy_stop_above_entry() -> None:
 
 
 def test_rejects_new_intent_during_event_blackout() -> None:
-    timestamp = datetime(2026, 8, 14, 9, tzinfo=timezone.utc)
+    timestamp = datetime(2026, 8, 14, 9, tzinfo=UTC)
     event = CalendarEvent(
         provider_event_id="cpi-20260814",
         canonical_event_type="US_CPI",
-        scheduled_at=datetime(2026, 8, 14, 12, tzinfo=timezone.utc),
+        scheduled_at=datetime(2026, 8, 14, 12, tzinfo=UTC),
         importance="high",
         country="US",
         currency="USD",

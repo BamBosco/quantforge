@@ -20,8 +20,8 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Final
 
-from .observation_contracts import ObservationEnvelope
 from .candidate_006_bridge_audit import Candidate006BridgeAuditConsumer
+from .observation_contracts import ObservationEnvelope
 from .observation_log import SQLiteMarketObservationLog, StoredObservation
 from .xauusd_broker_profile_audit import SQLiteXAUUSDBrokerProfileAudit
 
@@ -378,9 +378,7 @@ def _utc_timestamp(value: str) -> datetime:
         # MQL5's TimeToString emits ``YYYY.MM.DD HH:MM:SS``. Accept its
         # explicit UTC form at this adapter boundary as well as ISO-8601.
         try:
-            parsed = datetime.strptime(value, "%Y.%m.%d %H:%M:%SZ").replace(
-                tzinfo=UTC
-            )
+            parsed = datetime.strptime(value, "%Y.%m.%d %H:%M:%SZ").replace(tzinfo=UTC)
         except ValueError:
             raise SnapshotValidationError("observed_at_utc must be ISO-8601") from error
     if parsed.tzinfo is None or parsed.utcoffset() is None:

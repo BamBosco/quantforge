@@ -49,12 +49,15 @@ def test_delayed_poll_preserves_the_09_new_york_event_cycle(tmp_path: Path) -> N
         kill_switch_path=tmp_path / "KILL_SWITCH",
     )
     try:
-        assert run_once(
-            host,
-            runner_log,
-            set(),
-            evaluated_at=datetime(2026, 8, 21, 13, 1, 5, tzinfo=UTC),
-        ) == 1
+        assert (
+            run_once(
+                host,
+                runner_log,
+                set(),
+                evaluated_at=datetime(2026, 8, 21, 13, 1, 5, tzinfo=UTC),
+            )
+            == 1
+        )
         assert [event["event_type"] for event in journal.events()][-1] == (
             "ExecutionOutcomeRecorded"
         )

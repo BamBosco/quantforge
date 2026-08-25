@@ -29,7 +29,7 @@ def test_usdjpy_demo_profile_is_closed_candle_and_non_executable() -> None:
     ("replacement", "error"),
     [
         ("closed_candles_only = false", "closed_candles_only must be true"),
-        ("account_mode = \"live\"", "account_mode must be demo"),
+        ('account_mode = "live"', "account_mode must be demo"),
         ("live_trading_enabled = true", "live trading is prohibited"),
         ("order_submission_enabled = true", "Phase 1 cannot enable order submission"),
         ("max_open_positions = 2", "max_open_positions must be exactly one"),

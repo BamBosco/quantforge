@@ -5,9 +5,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 
-from quantforge.backtest.orb_bias import determine_entry_eligibility
 from quantforge.backtest.models import MinuteBar, OpeningRange
 from quantforge.backtest.orb import build_opening_range, to_new_york
+from quantforge.backtest.orb_bias import determine_entry_eligibility
 from quantforge.backtest.orb_simulation import (
     OrbSessionResult,
     OrbSimulationSettings,

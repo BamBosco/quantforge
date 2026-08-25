@@ -74,9 +74,7 @@ def _setup(
             "equity": 10_000,
         },
         "broker_symbol": "USDJPY",
-        "open_positions": [
-            {"ticket": "9001", "symbol": "USDJPY", "volume": 0.02}
-        ],
+        "open_positions": [{"ticket": "9001", "symbol": "USDJPY", "volume": 0.02}],
         "pending_orders": [],
     }
     log.append_demo_position_state_observation(

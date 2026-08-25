@@ -20,6 +20,8 @@ def policy() -> EventRiskPolicy:
 def snapshot(
     *events: CalendarEvent, retrieved_at: datetime | None = None
 ) -> CalendarSnapshot:
+    if retrieved_at is None:
+        retrieved_at = utc(9)
     return CalendarSnapshot(
         provider_name="example-calendar",
         snapshot_id="snapshot-20260814",
@@ -121,9 +123,7 @@ def test_audit_event_records_policy_snapshot_and_actions() -> None:
         calendar=snapshot(cpi_event()),
     )
 
-    audit_event = decision.to_audit_event(
-        correlation_id=uuid4(), occurred_at=utc(9)
-    )
+    audit_event = decision.to_audit_event(correlation_id=uuid4(), occurred_at=utc(9))
 
     assert audit_event.calendar_snapshot_id == "snapshot-20260814"
     assert audit_event.provider_event_id == "cpi-20260814"

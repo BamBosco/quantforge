@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from quantforge.backtest.configuration import (
-    load_directional_bias_settings,
     load_cost_scenarios,
+    load_directional_bias_settings,
     load_instrument_point_size,
 )
 from quantforge.backtest.dataset import (
@@ -14,7 +14,6 @@ from quantforge.backtest.dataset import (
     load_dataset_manifest,
     verify_dataset_checksum,
 )
-
 
 ROOT = Path(__file__).parents[2]
 

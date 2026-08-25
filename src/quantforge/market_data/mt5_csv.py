@@ -8,16 +8,18 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from quantforge.backtest.models import MinuteBar
 
-_REQUIRED_COLUMNS = frozenset({
-    "<DATE>",
-    "<TIME>",
-    "<OPEN>",
-    "<HIGH>",
-    "<LOW>",
-    "<CLOSE>",
-    "<TICKVOL>",
-    "<SPREAD>",
-})
+_REQUIRED_COLUMNS = frozenset(
+    {
+        "<DATE>",
+        "<TIME>",
+        "<OPEN>",
+        "<HIGH>",
+        "<LOW>",
+        "<CLOSE>",
+        "<TICKVOL>",
+        "<SPREAD>",
+    }
+)
 _TIMESTAMP_FORMATS = ("%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M")
 
 

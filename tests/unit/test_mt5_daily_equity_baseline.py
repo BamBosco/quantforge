@@ -122,9 +122,10 @@ def test_persists_earliest_valid_same_day_baseline(tmp_path: Path) -> None:
         )
         assert stored is not None
         assert stored["source_observation_id"] == earliest.observation_id
-        assert stored["source_observation_timestamp_utc"] == (
-            DAY + timedelta(minutes=5)
-        ).isoformat()
+        assert (
+            stored["source_observation_timestamp_utc"]
+            == (DAY + timedelta(minutes=5)).isoformat()
+        )
     finally:
         log.close()
 

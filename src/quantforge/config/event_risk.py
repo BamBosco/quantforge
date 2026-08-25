@@ -1,9 +1,9 @@
 """Loading for versioned scheduled-event risk policy configuration."""
 
+import tomllib
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-import tomllib
 
 
 @dataclass(frozen=True, slots=True)

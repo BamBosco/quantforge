@@ -17,7 +17,10 @@ def test_xauusd_uses_a_separate_read_only_scope() -> None:
     assert profile.broker_venue == "Dukascopy"
     assert profile.internal_symbol == profile.broker_symbol == "XAUUSD"
     assert profile.timeframe == "M1"
-    assert profile.audit_journal_path == "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
+    assert (
+        profile.audit_journal_path
+        == "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
+    )
     assert profile.order_submission_enabled is False
 
 
@@ -26,7 +29,9 @@ def test_xauusd_rejects_non_dukascopy_broker_identity(tmp_path: Path) -> None:
     text = (root / "config" / "candidate_006_xauusd_read_only.toml").read_text()
     path = tmp_path / "profile.toml"
     path.write_text(text.replace('venue = "Dukascopy"', 'venue = "Headway"'))
-    with pytest.raises(ForexMT5DemoConfigurationError, match="broker contract is invalid"):
+    with pytest.raises(
+        ForexMT5DemoConfigurationError, match="broker contract is invalid"
+    ):
         load_xauusd_read_only_broker_profile(path)
 
 
@@ -88,7 +93,9 @@ def test_xauusd_broker_facts_must_come_from_mt5_observations(
     root = Path(__file__).parents[2]
     text = (root / "config" / "candidate_006_xauusd_read_only.toml").read_text()
     path = tmp_path / "profile.toml"
-    path.write_text(text.replace('timeframe = "M1"', f'timeframe = "M1"\n{broker_fact}'))
+    path.write_text(
+        text.replace('timeframe = "M1"', f'timeframe = "M1"\n{broker_fact}')
+    )
     with pytest.raises(ForexMT5DemoConfigurationError, match="must be observed"):
         load_xauusd_read_only_broker_profile(path)
 

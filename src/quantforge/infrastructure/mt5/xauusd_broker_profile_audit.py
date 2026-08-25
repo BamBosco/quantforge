@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from math import isfinite
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -250,7 +250,9 @@ class SQLiteXAUUSDBrokerProfileAudit:
                     (
                         source_event_id,
                         risk_status,
-                        json.dumps(risk_decision, sort_keys=True, separators=(",", ":")),
+                        json.dumps(
+                            risk_decision, sort_keys=True, separators=(",", ":")
+                        ),
                         datetime.now(UTC).isoformat(),
                     ),
                 )

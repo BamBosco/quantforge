@@ -1,10 +1,10 @@
 """Typed loading of approved research-only backtest configuration."""
 
+import tomllib
 from dataclasses import dataclass
 from datetime import time
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-import tomllib
 
 from quantforge.backtest.orb_bias import DirectionalBiasMode, DirectionalBiasSettings
 
@@ -42,7 +42,9 @@ class IntradayMomentumProfile:
         if self.signal_window_minutes <= 0:
             raise ValueError("momentum signal window must be positive")
         if self.max_completed_entries_per_session != 1:
-            raise ValueError("momentum experiment permits exactly one entry per session")
+            raise ValueError(
+                "momentum experiment permits exactly one entry per session"
+            )
 
 
 def load_cost_scenarios(path: Path) -> tuple[CostScenario, ...]:
@@ -88,9 +90,12 @@ def load_intraday_momentum_profile(path: Path) -> IntradayMomentumProfile:
         )
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError("invalid intraday-momentum session configuration") from error
-    if profile.entry_time.hour * 60 + profile.entry_time.minute - (
-        profile.signal_start.hour * 60 + profile.signal_start.minute
-    ) != profile.signal_window_minutes:
+    if (
+        profile.entry_time.hour * 60
+        + profile.entry_time.minute
+        - (profile.signal_start.hour * 60 + profile.signal_start.minute)
+        != profile.signal_window_minutes
+    ):
         raise ValueError("momentum entry time must follow the configured signal window")
     return profile
 

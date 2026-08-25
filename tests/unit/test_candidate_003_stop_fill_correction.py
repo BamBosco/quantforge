@@ -64,20 +64,26 @@ def test_long_stop_uses_bid_low_for_intrabar_and_gap_fills() -> None:
     gap = _bar(moment, open_="98", high="99", low="97", close="97.5")
     for points in (Decimal("0"), Decimal("1"), Decimal("3")):
         slippage = POINT * points
-        assert adverse_protective_stop_exit_price(
-            "buy",
-            intrabar,
-            Decimal("99"),
-            point_size=POINT,
-            additional_slippage=slippage,
-        ) == Decimal("97") - slippage
-        assert adverse_protective_stop_exit_price(
-            "buy",
-            gap,
-            Decimal("99"),
-            point_size=POINT,
-            additional_slippage=slippage,
-        ) == Decimal("97") - slippage
+        assert (
+            adverse_protective_stop_exit_price(
+                "buy",
+                intrabar,
+                Decimal("99"),
+                point_size=POINT,
+                additional_slippage=slippage,
+            )
+            == Decimal("97") - slippage
+        )
+        assert (
+            adverse_protective_stop_exit_price(
+                "buy",
+                gap,
+                Decimal("99"),
+                point_size=POINT,
+                additional_slippage=slippage,
+            )
+            == Decimal("97") - slippage
+        )
 
 
 def test_short_stop_uses_ask_high_for_intrabar_and_gap_fills() -> None:
@@ -87,20 +93,26 @@ def test_short_stop_uses_ask_high_for_intrabar_and_gap_fills() -> None:
     for points in (Decimal("0"), Decimal("1"), Decimal("3")):
         slippage = POINT * points
         expected = Decimal("104.002") + slippage
-        assert adverse_protective_stop_exit_price(
-            "sell",
-            intrabar,
-            Decimal("101"),
-            point_size=POINT,
-            additional_slippage=slippage,
-        ) == expected
-        assert adverse_protective_stop_exit_price(
-            "sell",
-            gap,
-            Decimal("101"),
-            point_size=POINT,
-            additional_slippage=slippage,
-        ) == expected
+        assert (
+            adverse_protective_stop_exit_price(
+                "sell",
+                intrabar,
+                Decimal("101"),
+                point_size=POINT,
+                additional_slippage=slippage,
+            )
+            == expected
+        )
+        assert (
+            adverse_protective_stop_exit_price(
+                "sell",
+                gap,
+                Decimal("101"),
+                point_size=POINT,
+                additional_slippage=slippage,
+            )
+            == expected
+        )
 
 
 def test_corrected_stop_fill_propagates_to_long_and_short_r() -> None:

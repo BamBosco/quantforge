@@ -1,7 +1,7 @@
 """Risk-Engine evaluation of validated scheduled economic-calendar events."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -220,5 +220,5 @@ def _require_utc(value: datetime, field_name: str) -> None:
     """Reject naive and non-UTC policy timestamps."""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{field_name} must be timezone-aware UTC")
-    if value.utcoffset() != timezone.utc.utcoffset(value):
+    if value.utcoffset() != UTC.utcoffset(value):
         raise ValueError(f"{field_name} must be UTC")

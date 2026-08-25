@@ -24,14 +24,32 @@ class Backend:
 
 
 def snapshot(**changes: object) -> dict[str, object]:
-    value: dict[str, object] = {"instrument": {"canonical_symbol": "USDJPY"}, "candle": {"timeframe": "M1"}, "observed_at_utc": NOW.isoformat()}
-    for key, item in changes.items(): value[key] = item
+    value: dict[str, object] = {
+        "instrument": {"canonical_symbol": "USDJPY"},
+        "candle": {"timeframe": "M1"},
+        "observed_at_utc": NOW.isoformat(),
+    }
+    for key, item in changes.items():
+        value[key] = item
     return value
 
 
 def intent(direction: str = "BUY", **changes: object) -> str:
-    value: dict[str, object] = {"symbol": "USDJPY", "timestamp": NOW.isoformat(), "direction": direction, "entry_type": "market", "entry_price": 159.1, "stop_loss": 159.0, "take_profit": 159.3, "risk_percent": 0.005, "confidence": 0.7, "reason": "test", "expiry": (NOW + timedelta(minutes=2)).isoformat()}
-    if direction == "SELL": value.update({"stop_loss": 159.2, "take_profit": 158.9})
+    value: dict[str, object] = {
+        "symbol": "USDJPY",
+        "timestamp": NOW.isoformat(),
+        "direction": direction,
+        "entry_type": "market",
+        "entry_price": 159.1,
+        "stop_loss": 159.0,
+        "take_profit": 159.3,
+        "risk_percent": 0.005,
+        "confidence": 0.7,
+        "reason": "test",
+        "expiry": (NOW + timedelta(minutes=2)).isoformat(),
+    }
+    if direction == "SELL":
+        value.update({"stop_loss": 159.2, "take_profit": 158.9})
     value.update(changes)
     return json.dumps(value)
 
@@ -60,30 +78,66 @@ def run(
 @pytest.mark.parametrize("direction", ["BUY", "SELL", "HOLD"])
 def test_valid_intents_are_audited(tmp_path: Path, direction: str) -> None:
     result, log, _ = run(tmp_path, intent(direction))
-    try: assert result.accepted and log.agent_decisions()[0]["status"] == "accepted"
-    finally: log.close()
+    try:
+        assert result.accepted and log.agent_decisions()[0]["status"] == "accepted"
+    finally:
+        log.close()
 
 
-@pytest.mark.parametrize("final,reason", [("no", "malformed agent output"), (intent(stop_loss=0), "missing protective levels"), (intent(risk_percent=2), "invalid risk_percent")])
-def test_invalid_agent_output_is_rejected(tmp_path: Path, final: str, reason: str) -> None:
+@pytest.mark.parametrize(
+    "final,reason",
+    [
+        ("no", "malformed agent output"),
+        (intent(stop_loss=0), "missing protective levels"),
+        (intent(risk_percent=2), "invalid risk_percent"),
+    ],
+)
+def test_invalid_agent_output_is_rejected(
+    tmp_path: Path, final: str, reason: str
+) -> None:
     result, log, _ = run(tmp_path, final)
-    try: assert not result.accepted and reason in result.reasons and log.agent_decisions()[0]["status"] == "rejected"
-    finally: log.close()
+    try:
+        assert (
+            not result.accepted
+            and reason in result.reasons
+            and log.agent_decisions()[0]["status"] == "rejected"
+        )
+    finally:
+        log.close()
 
 
-@pytest.mark.parametrize("market,reason", [(snapshot(observed_at_utc=(NOW-timedelta(seconds=91)).isoformat()), "snapshot is stale"), (snapshot(instrument={"canonical_symbol": "EURUSD"}), "unsupported symbol")])
-def test_stale_or_unsupported_snapshot_is_rejected(tmp_path: Path, market: dict[str, object], reason: str) -> None:
+@pytest.mark.parametrize(
+    "market,reason",
+    [
+        (
+            snapshot(observed_at_utc=(NOW - timedelta(seconds=91)).isoformat()),
+            "snapshot is stale",
+        ),
+        (snapshot(instrument={"canonical_symbol": "EURUSD"}), "unsupported symbol"),
+    ],
+)
+def test_stale_or_unsupported_snapshot_is_rejected(
+    tmp_path: Path, market: dict[str, object], reason: str
+) -> None:
     result, log, _ = run(tmp_path, intent(), market)
-    try: assert not result.accepted and reason in result.reasons
-    finally: log.close()
+    try:
+        assert not result.accepted and reason in result.reasons
+    finally:
+        log.close()
 
 
 @pytest.mark.parametrize(
     ("final", "reason"),
     [
         (intent(timestamp="2026-08-24T16:35:00"), "invalid decision timestamp"),
-        (intent(timestamp=(NOW + timedelta(seconds=1)).isoformat()), "decision timestamp does not match snapshot"),
-        (intent(expiry=NOW.isoformat()), "expiry must be later than decision timestamp"),
+        (
+            intent(timestamp=(NOW + timedelta(seconds=1)).isoformat()),
+            "decision timestamp does not match snapshot",
+        ),
+        (
+            intent(expiry=NOW.isoformat()),
+            "expiry must be later than decision timestamp",
+        ),
         (intent(expiry="not-a-timestamp"), "invalid expiry"),
         (intent(risk_percent=0.006), "invalid risk_percent"),
     ],
@@ -119,7 +173,9 @@ def test_snapshot_timestamp_remains_valid_for_a_matching_intent(tmp_path: Path) 
         log.close()
 
 
-def test_existing_observation_decision_is_not_sent_to_model_twice(tmp_path: Path) -> None:
+def test_existing_observation_decision_is_not_sent_to_model_twice(
+    tmp_path: Path,
+) -> None:
     backend = Backend(intent())
     result, log, _ = run(tmp_path, intent(), backend=backend)
     try:

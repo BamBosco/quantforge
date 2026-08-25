@@ -106,9 +106,7 @@ def simulate_intraday_momentum_session(
         )
     ]
     if signal_close == signal_open:
-        return ReplaySessionResult(
-            session_day, SessionOutcome.NO_TRADE, tuple(events)
-        )
+        return ReplaySessionResult(session_day, SessionOutcome.NO_TRADE, tuple(events))
     side = "buy" if signal_close > signal_open else "sell"
     entry_bar = by_time[entry_at]
     entry_price = adverse_market_entry_price(
@@ -135,9 +133,7 @@ def simulate_intraday_momentum_session(
             "protective-stop shape approved for non-sized research intent",
         )
     )
-    if protective_stop_touched(
-        side, entry_bar, stop, point_size=settings.point_size
-    ):
+    if protective_stop_touched(side, entry_bar, stop, point_size=settings.point_size):
         events.append(
             SimulationEvent(
                 entry_at,

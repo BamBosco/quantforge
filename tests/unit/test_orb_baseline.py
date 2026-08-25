@@ -6,8 +6,8 @@ import pytest
 
 from quantforge.backtest.models import MinuteBar, OpeningRange
 from quantforge.backtest.orb import (
-    OPENING_TIME,
     NEW_YORK,
+    OPENING_TIME,
     build_opening_range,
     calculate_stretch,
     entry_levels,
@@ -16,10 +16,15 @@ from quantforge.backtest.orb import (
 
 
 def make_bar(offset: int, high: str, low: str) -> MinuteBar:
-    start = datetime(2026, 8, 14, OPENING_TIME.hour, OPENING_TIME.minute, tzinfo=NEW_YORK)
+    start = datetime(
+        2026, 8, 14, OPENING_TIME.hour, OPENING_TIME.minute, tzinfo=NEW_YORK
+    )
     return MinuteBar(
         timestamp=start.astimezone(ZoneInfo("UTC")) + timedelta(minutes=offset),
-        open=Decimal("100"), high=Decimal(high), low=Decimal(low), close=Decimal("100"),
+        open=Decimal("100"),
+        high=Decimal(high),
+        low=Decimal(low),
+        close=Decimal("100"),
     )
 
 
@@ -40,7 +45,9 @@ def test_rejects_missing_opening_range_data() -> None:
 
 
 def test_calculates_ten_session_stretch_and_protective_stops() -> None:
-    prior = [OpeningRange(Decimal("102"), Decimal("99"), Decimal("100")) for _ in range(10)]
+    prior = [
+        OpeningRange(Decimal("102"), Decimal("99"), Decimal("100")) for _ in range(10)
+    ]
     opening_range = OpeningRange(Decimal("110"), Decimal("100"), Decimal("105"))
 
     stretch = calculate_stretch(prior)

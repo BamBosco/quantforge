@@ -72,9 +72,12 @@ def test_final_research_role_has_room_for_a_complete_structured_intent() -> None
             base_url=f"http://127.0.0.1:{port}", model="qwen3:latest"
         )
         snapshot_timestamp = "2026-08-24T16:35:00+00:00"
-        assert backend.complete(
-            "risk_portfolio", {"snapshot": {"observed_at_utc": snapshot_timestamp}}
-        ) == "local result"
+        assert (
+            backend.complete(
+                "risk_portfolio", {"snapshot": {"observed_at_utc": snapshot_timestamp}}
+            )
+            == "local result"
+        )
         assert _Handler.request_body["options"] == {
             "temperature": 0,
             "num_predict": 224,

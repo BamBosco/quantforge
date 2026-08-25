@@ -11,7 +11,9 @@ from quantforge.risk.limits import (
 
 
 def limits() -> RiskLimits:
-    return RiskLimits(Decimal("0.01"), Decimal("0.03"), Decimal("0.06"), Decimal("0.03"))
+    return RiskLimits(
+        Decimal("0.01"), Decimal("0.03"), Decimal("0.06"), Decimal("0.03")
+    )
 
 
 def snapshot(**changes: Decimal) -> AccountRiskSnapshot:

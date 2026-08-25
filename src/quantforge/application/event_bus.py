@@ -22,7 +22,9 @@ class EventBus:
             defaultdict(list)
         )
 
-    def subscribe(self, event_type: type[EventT], handler: EventHandler[EventT]) -> None:
+    def subscribe(
+        self, event_type: type[EventT], handler: EventHandler[EventT]
+    ) -> None:
         """Register a handler for one exact domain event type."""
         self._handlers[event_type].append(handler)  # type: ignore[arg-type]
 

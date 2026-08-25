@@ -34,7 +34,8 @@ def assess_observation(
 ) -> QualityAssessment:
     """Assess freshness and sequence integrity without discarding audit evidence."""
 
-    policy = policy or ObservationQualityPolicy()
+    if policy is None:
+        policy = ObservationQualityPolicy()
     received_at_utc = received_at_utc.astimezone(UTC)
     event_time = observation.observed_at_utc.astimezone(UTC)
     digest = payload_sha256(observation.to_public_payload())
@@ -45,7 +46,10 @@ def assess_observation(
         issues.append("stale_data")
     if (event_time - received_at_utc).total_seconds() > policy.max_future_skew_seconds:
         issues.append("future_timestamp")
-    if previous_event_time_utc is not None and event_time < previous_event_time_utc.astimezone(UTC):
+    if (
+        previous_event_time_utc is not None
+        and event_time < previous_event_time_utc.astimezone(UTC)
+    ):
         issues.append("clock_regression")
     if observation.schema_version == 2:
         quality = observation.payload["data_quality"]

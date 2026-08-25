@@ -83,9 +83,9 @@ def run(tmp_path: Path, final: str, *, baseline: Decimal | None):
         log,
         Backend(final),
         risk_gate=ForexRiskGate(risk_settings()),
-        risk_context_provider=lambda _: ForexRiskContext(baseline)
-        if baseline is not None
-        else None,
+        risk_context_provider=lambda _: (
+            ForexRiskContext(baseline) if baseline is not None else None
+        ),
     ).run_latest(evaluated_at=NOW, completed_at=NOW)
     assert result is not None
     return result, log

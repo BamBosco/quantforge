@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-import tomllib
-from typing import Any, Mapping
+from typing import Any
 
 
 class BrokerProfileError(ValueError):
@@ -47,7 +48,9 @@ def load_broker_profile(path: Path) -> BrokerProfile:
     profile = _mapping(parsed.get("profile"), "profile")
     profile_id = _nonempty(profile.get("id", profile.get("name")), "profile.id")
     adapter = _nonempty(profile.get("adapter", "mt5"), "profile.adapter")
-    environment = _nonempty(profile.get("environment", "unspecified"), "profile.environment")
+    environment = _nonempty(
+        profile.get("environment", "unspecified"), "profile.environment"
+    )
     instruments_raw = _mapping(parsed.get("instruments", {}), "instruments")
     instruments: list[InstrumentProfile] = []
     for canonical, details in instruments_raw.items():
@@ -56,7 +59,9 @@ def load_broker_profile(path: Path) -> BrokerProfile:
             InstrumentProfile(
                 canonical_instrument=_nonempty(canonical, "instrument name"),
                 broker_symbol=_nonempty(
-                    details_map.get("broker_symbol", details_map.get("symbol", canonical)),
+                    details_map.get(
+                        "broker_symbol", details_map.get("symbol", canonical)
+                    ),
                     f"instruments.{canonical}.broker_symbol",
                 ),
                 enabled=bool(details_map.get("enabled", True)),

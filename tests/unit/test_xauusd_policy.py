@@ -28,12 +28,30 @@ def test_loads_explicit_policy(tmp_path: Path) -> None:
     "content, expected",
     [
         ("", "risk must be a TOML table"),
-        ("[risk]\nrisk_per_trade = 0.01\n", "maximum_position_size must be explicitly configured"),
-        ("[risk]\nmaximum_position_size = 2\n", "risk_per_trade must be explicitly configured"),
-        ("[risk]\nrisk_per_trade = 0\nmaximum_position_size = 2\n", "risk_per_trade must be greater than zero"),
-        ("[risk]\nrisk_per_trade = 1.01\nmaximum_position_size = 2\n", "risk_per_trade must be greater than zero"),
-        ("[risk]\nrisk_per_trade = 0.01\nmaximum_position_size = 0\n", "maximum_position_size must be greater than zero"),
-        ("[risk]\nrisk_per_trade = \"NaN\"\nmaximum_position_size = 2\n", "risk_per_trade must be a finite number"),
+        (
+            "[risk]\nrisk_per_trade = 0.01\n",
+            "maximum_position_size must be explicitly configured",
+        ),
+        (
+            "[risk]\nmaximum_position_size = 2\n",
+            "risk_per_trade must be explicitly configured",
+        ),
+        (
+            "[risk]\nrisk_per_trade = 0\nmaximum_position_size = 2\n",
+            "risk_per_trade must be greater than zero",
+        ),
+        (
+            "[risk]\nrisk_per_trade = 1.01\nmaximum_position_size = 2\n",
+            "risk_per_trade must be greater than zero",
+        ),
+        (
+            "[risk]\nrisk_per_trade = 0.01\nmaximum_position_size = 0\n",
+            "maximum_position_size must be greater than zero",
+        ),
+        (
+            "[risk]\nrisk_per_trade = \"NaN\"\nmaximum_position_size = 2\n",
+            "risk_per_trade must be a finite number",
+        ),
     ],
 )
 def test_policy_never_invents_or_inherits_values(

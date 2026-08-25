@@ -115,19 +115,26 @@ def _validate(
         reasons.append("invalid XAUUSD tick risk metadata")
     if minimum <= 0 or maximum < minimum or step <= 0:
         reasons.append("invalid XAUUSD broker volume metadata")
-    if equity <= 0:
-        reasons.append("account equity must be positive")
-    if policy.risk_per_trade is not None and not 0 < policy.risk_per_trade <= 1:
+    if equity <= 0 or not equity.is_finite():
+        reasons.append("account equity must be a positive finite value")
+    if policy.risk_per_trade is not None and not policy.risk_per_trade.is_finite():
+        reasons.append("risk-per-trade policy must be finite")
+    elif policy.risk_per_trade is not None and not 0 < policy.risk_per_trade <= 1:
         reasons.append("risk-per-trade policy must be greater than zero and at most one")
-    if policy.maximum_position_size is not None and policy.maximum_position_size <= 0:
-        reasons.append("maximum-position policy must be positive")
+    if policy.maximum_position_size is not None and (
+        not policy.maximum_position_size.is_finite() or policy.maximum_position_size <= 0
+    ):
+        reasons.append("maximum-position policy must be a positive finite value")
     return reasons
 
 
 def _decimal(value: Any) -> Decimal:
     if isinstance(value, bool):
         raise ValueError("boolean is not numeric")
-    return Decimal(str(value))
+    decimal = Decimal(str(value))
+    if not decimal.is_finite():
+        raise ValueError("numeric value must be finite")
+    return decimal
 
 
 def _snap_down(value: Decimal, step: Decimal) -> Decimal:

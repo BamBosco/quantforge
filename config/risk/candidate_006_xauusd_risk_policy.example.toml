@@ -1,0 +1,10 @@
+# Candidate 006 XAUUSD policy template only.
+# This file is intentionally inactive and contains no policy values.
+#
+# A real policy must be explicitly reviewed before use:
+#
+# [risk]
+# risk_per_trade = 0.01
+# maximum_position_size = 1.0
+#
+# The XAUUSD risk gate must remain fail-closed when either value is absent.

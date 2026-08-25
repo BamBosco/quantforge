@@ -64,6 +64,18 @@ def test_persists_xauusd_facts_in_its_own_append_only_audit(tmp_path: Path) -> N
         audit.close()
 
 
+@pytest.mark.parametrize("value", (float("nan"), float("inf"), float("-inf")))
+def test_rejects_non_finite_broker_facts(value: float) -> None:
+    source = payload()
+    quote = source["quote"]
+    assert isinstance(quote, dict)
+    quote["bid"] = value
+    with pytest.raises(XAUUSDBrokerProfileAuditError, match="must be finite"):
+        XAUUSDBrokerMetadataObservation.from_read_only_payload(
+            source_event_id=1042, payload=source
+        )
+
+
 def test_rejects_non_xauusd_source_observations() -> None:
     source = payload()
     instrument = source["instrument"]

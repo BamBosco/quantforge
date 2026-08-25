@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from math import isfinite
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -271,7 +272,10 @@ def _mapping(value: Any, path: str) -> Mapping[str, Any]:
 def _number(value: Any, path: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise XAUUSDBrokerProfileAuditError(f"{path} must be numeric")
-    return float(value)
+    number = float(value)
+    if not isfinite(number):
+        raise XAUUSDBrokerProfileAuditError(f"{path} must be finite")
+    return number
 
 
 def _integer(value: Any, path: str) -> int:

@@ -1,0 +1,36 @@
+name: Candidate 006
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  xauusd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install '.[dev]'
+      - run: >-
+          ruff check
+          src/quantforge/config/xauusd_policy.py
+          src/quantforge/infrastructure/mt5/xauusd_broker_profile_audit.py
+          src/quantforge/risk/xauusd_gate.py
+          tests/unit/test_candidate_006_xauusd_profile.py
+          tests/unit/test_xauusd_broker_profile_audit.py
+          tests/unit/test_xauusd_policy.py
+          tests/unit/test_xauusd_risk_gate.py
+      - run: mypy src
+      - run: >-
+          pytest
+          tests/unit/test_candidate_006_xauusd_profile.py
+          tests/unit/test_xauusd_broker_profile_audit.py
+          tests/unit/test_xauusd_policy.py
+          tests/unit/test_xauusd_risk_gate.py

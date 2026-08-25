@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from quantforge.infrastructure.mt5.observation_contracts import ObservationEnvelope, payload_sha256
+from quantforge.infrastructure.mt5.observation_contracts import (
+    ObservationEnvelope,
+    payload_sha256,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,10 +30,11 @@ def assess_observation(
     received_at_utc: datetime,
     previous_event_time_utc: datetime | None = None,
     previous_payload_sha256: str | None = None,
-    policy: ObservationQualityPolicy = ObservationQualityPolicy(),
+    policy: ObservationQualityPolicy | None = None,
 ) -> QualityAssessment:
     """Assess freshness and sequence integrity without discarding audit evidence."""
 
+    policy = policy or ObservationQualityPolicy()
     received_at_utc = received_at_utc.astimezone(UTC)
     event_time = observation.observed_at_utc.astimezone(UTC)
     digest = payload_sha256(observation.to_public_payload())

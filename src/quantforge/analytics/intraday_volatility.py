@@ -213,7 +213,7 @@ def _absolute_close_moves(closes: Sequence[Decimal]) -> Decimal:
     if len(closes) < 2:
         raise ValueError("at least two closes are required")
     return sum(
-        (abs(current - previous) for previous, current in zip(closes, closes[1:])),
+        (abs(current - previous) for previous, current in zip(closes, closes[1:], strict=False)),
         start=Decimal("0"),
     )
 

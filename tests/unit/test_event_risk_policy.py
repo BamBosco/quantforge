@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,7 +8,7 @@ from quantforge.risk.event_policy import EventRiskAction, EventRiskPolicy
 
 
 def utc(hour: int, minute: int = 0) -> datetime:
-    return datetime(2026, 8, 14, hour, minute, tzinfo=timezone.utc)
+    return datetime(2026, 8, 14, hour, minute, tzinfo=UTC)
 
 
 def policy() -> EventRiskPolicy:
@@ -18,12 +18,12 @@ def policy() -> EventRiskPolicy:
 
 
 def snapshot(
-    *events: CalendarEvent, retrieved_at: datetime = utc(9)
+    *events: CalendarEvent, retrieved_at: datetime | None = None
 ) -> CalendarSnapshot:
     return CalendarSnapshot(
         provider_name="example-calendar",
         snapshot_id="snapshot-20260814",
-        retrieved_at=retrieved_at,
+        retrieved_at=retrieved_at or utc(9),
         events=events,
     )
 

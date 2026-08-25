@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Callable
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from quantforge.domain.events import DomainEvent
 

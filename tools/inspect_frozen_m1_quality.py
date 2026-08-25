@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 from collections import defaultdict
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -24,7 +24,7 @@ def parse_timestamp(row: dict[str, str], source_timezone: ZoneInfo) -> datetime:
     value = f"{row['<DATE>'].strip()} {row['<TIME>'].strip()}"
     for fmt in ("%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M"):
         try:
-            return datetime.strptime(value, fmt).replace(tzinfo=source_timezone).astimezone(timezone.utc)
+            return datetime.strptime(value, fmt).replace(tzinfo=source_timezone).astimezone(UTC)
         except ValueError:
             pass
     raise ValueError("unsupported timestamp")
@@ -44,7 +44,7 @@ def inspect(path: Path, source_timezone: ZoneInfo) -> dict[str, object]:
         reader = csv.DictReader(file, delimiter="\t")
         if reader.fieldnames is None or not REQUIRED_COLUMNS.issubset(reader.fieldnames):
             raise ValueError("unsupported MT5 M1 schema")
-        for line, row in enumerate(reader, 2):
+        for _line, row in enumerate(reader, 2):
             counts["rows"] += 1
             try:
                 timestamp = parse_timestamp(row, source_timezone)

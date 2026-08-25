@@ -146,6 +146,7 @@ class SQLiteXAUUSDBrokerProfileAudit:
         path = Path(database_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._connection = sqlite3.connect(path)
+        self._connection.execute("PRAGMA foreign_keys = ON")
         self._bootstrap()
 
     def _bootstrap(self) -> None:
@@ -157,7 +158,9 @@ class SQLiteXAUUSDBrokerProfileAudit:
                     source_event_id INTEGER NOT NULL UNIQUE,
                     observed_at_utc TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
-                    created_at_utc TEXT NOT NULL
+                    created_at_utc TEXT NOT NULL,
+                    FOREIGN KEY (source_event_id)
+                        REFERENCES xauusd_broker_metadata_observation(source_event_id)
                 )
                 """
             )
@@ -165,7 +168,7 @@ class SQLiteXAUUSDBrokerProfileAudit:
                 """
                 CREATE TABLE IF NOT EXISTS xauusd_risk_decision (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    source_event_id INTEGER NOT NULL,
+                    source_event_id INTEGER NOT NULL UNIQUE,
                     risk_status TEXT NOT NULL,
                     risk_decision_json TEXT NOT NULL,
                     created_at_utc TEXT NOT NULL
@@ -216,8 +219,28 @@ class SQLiteXAUUSDBrokerProfileAudit:
             raise XAUUSDBrokerProfileAuditError(
                 "XAUUSD risk audit must be non-executable"
             )
+        if risk_status not in {"approved", "rejected"}:
+            raise XAUUSDBrokerProfileAuditError(
+                "XAUUSD risk audit status must be approved or rejected"
+            )
+        if risk_decision.get("status") != risk_status:
+            raise XAUUSDBrokerProfileAuditError(
+                "XAUUSD risk audit status must match the decision"
+            )
+        source_exists = self._connection.execute(
+            """
+            SELECT 1 FROM xauusd_broker_metadata_observation
+            WHERE source_event_id = ?
+            """,
+            (source_event_id,),
+        ).fetchone()
+        if source_exists is None:
+            raise XAUUSDBrokerProfileAuditError(
+                "XAUUSD risk decision requires a persisted source observation"
+            )
         with self._connection:
-            self._connection.execute(
+            try:
+                self._connection.execute(
                 """
                 INSERT INTO xauusd_risk_decision (
                     source_event_id, risk_status, risk_decision_json, created_at_utc
@@ -230,6 +253,10 @@ class SQLiteXAUUSDBrokerProfileAudit:
                     datetime.now(UTC).isoformat(),
                 ),
             )
+            except sqlite3.IntegrityError as error:
+                raise XAUUSDBrokerProfileAuditError(
+                    "source observation already has a risk decision"
+                ) from error
 
     def close(self) -> None:
         self._connection.close()

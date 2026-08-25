@@ -122,19 +122,43 @@ def test_append_only_audit_refuses_to_replace_a_source_receipt(tmp_path: Path) -
         audit.close()
 
 
-def test_xauusd_risk_audit_refuses_an_executable_record(tmp_path: Path) -> None:
+def test_xauusd_risk_audit_requires_a_matching_source_and_status(
+    tmp_path: Path,
+) -> None:
+    observation = XAUUSDBrokerMetadataObservation.from_read_only_payload(
+        source_event_id=1104, payload=payload()
+    )
     audit = SQLiteXAUUSDBrokerProfileAudit(tmp_path / "xauusd.sqlite3")
     try:
         with pytest.raises(XAUUSDBrokerProfileAuditError, match="non-executable"):
             audit.append_risk_decision(
                 source_event_id=1104,
                 risk_status="approved",
-                risk_decision={"non_executable": False},
+                risk_decision={"non_executable": False, "status": "approved"},
+            )
+        with pytest.raises(XAUUSDBrokerProfileAuditError, match="persisted source"):
+            audit.append_risk_decision(
+                source_event_id=1104,
+                risk_status="rejected",
+                risk_decision={"non_executable": True, "status": "rejected"},
+            )
+        audit.append(observation)
+        with pytest.raises(XAUUSDBrokerProfileAuditError, match="must match"):
+            audit.append_risk_decision(
+                source_event_id=1104,
+                risk_status="approved",
+                risk_decision={"non_executable": True, "status": "rejected"},
             )
         audit.append_risk_decision(
             source_event_id=1104,
             risk_status="rejected",
-            risk_decision={"non_executable": True, "reasons": ["policy unresolved"]},
+            risk_decision={"non_executable": True, "status": "rejected"},
         )
+        with pytest.raises(XAUUSDBrokerProfileAuditError, match="already has"):
+            audit.append_risk_decision(
+                source_event_id=1104,
+                risk_status="rejected",
+                risk_decision={"non_executable": True, "status": "rejected"},
+            )
     finally:
         audit.close()

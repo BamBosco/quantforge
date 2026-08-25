@@ -33,6 +33,16 @@ def observation():
         ask=Decimal("4645.835"),
     )
     result.payload["account"]["server"] = "Dukascopy-demo-mt5-1"
+    result.payload["candles"]["completed"] = [
+        {
+            "open_time_utc": "2026-08-25T00:00:00+00:00",
+            "open": 4633.205,
+            "high": 4635.245,
+            "low": 4633.205,
+            "close": 4634.195,
+            "tick_volume": 225,
+        }
+    ]
     spec = result.payload["instrument"]["specification"]
     spec.update(
         {

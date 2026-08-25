@@ -18,10 +18,12 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
-from typing import Any, Final
+from typing import Any, Callable, Final
 
 from .observation_contracts import ObservationEnvelope
-from .observation_log import SQLiteMarketObservationLog
+from .candidate_006_bridge_audit import Candidate006BridgeAuditConsumer
+from .observation_log import SQLiteMarketObservationLog, StoredObservation
+from .xauusd_broker_profile_audit import SQLiteXAUUSDBrokerProfileAudit
 
 _MAX_REQUEST_BYTES: Final = 32_768
 _BRIDGE_TOKEN_ENV: Final = "QUANTFORGE_MT5_BRIDGE_TOKEN"
@@ -140,15 +142,24 @@ class MT5Snapshot:
 class SnapshotStore:
     """Thread-safe latest snapshot cache with durable audit storage."""
 
-    def __init__(self, observation_log: SQLiteMarketObservationLog) -> None:
+    def __init__(
+        self,
+        observation_log: SQLiteMarketObservationLog,
+        *,
+        candidate_006_consumer: Candidate006BridgeAuditConsumer | None = None,
+    ) -> None:
         self._lock = Lock()
         self._latest: ObservationEnvelope | None = None
         self._observation_log = observation_log
+        self._candidate_006_consumer = candidate_006_consumer
 
-    def record(self, observation: ObservationEnvelope) -> None:
-        self._observation_log.append_observation(observation)
+    def record(self, observation: ObservationEnvelope) -> StoredObservation:
+        receipt = self._observation_log.append_observation(observation)
+        if self._candidate_006_consumer is not None:
+            self._candidate_006_consumer.consume(observation, receipt)
         with self._lock:
             self._latest = observation
+        return receipt
 
     def latest(self) -> ObservationEnvelope | None:
         with self._lock:
@@ -180,13 +191,28 @@ def create_server(
     port: int,
     token: str,
     observation_log_path: Path | str = _DEFAULT_OBSERVATION_LOG_PATH,
+    *,
+    candidate_006_audit_path: Path | str | None = None,
 ) -> ReadOnlyBridgeServer:
     """Create a loopback-only bridge server with its token held in memory."""
     if host not in {"127.0.0.1", "::1", "localhost"}:
         raise ValueError("the read-only bridge may bind only to loopback")
     if not token:
         raise ValueError("bridge token must not be empty")
-    store = SnapshotStore(SQLiteMarketObservationLog(observation_log_path))
+    candidate_006_audit = (
+        SQLiteXAUUSDBrokerProfileAudit(candidate_006_audit_path)
+        if candidate_006_audit_path is not None
+        else None
+    )
+    consumer = (
+        Candidate006BridgeAuditConsumer(candidate_006_audit)
+        if candidate_006_audit is not None
+        else None
+    )
+    store = SnapshotStore(
+        SQLiteMarketObservationLog(observation_log_path),
+        candidate_006_consumer=consumer,
+    )
     handler = _handler_for(store, token)
     try:
         return ReadOnlyBridgeServer((host, port), handler, store)
@@ -201,6 +227,11 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument(
+        "--candidate-006-audit",
+        type=Path,
+        help="optional isolated Candidate 006 read-only audit database",
+    )
+    parser.add_argument(
         "--observation-log",
         type=Path,
         default=Path(
@@ -214,7 +245,11 @@ def main() -> None:
     if not token:
         parser.error(f"set {_BRIDGE_TOKEN_ENV} outside the repository before starting")
     server = create_server(
-        arguments.host, arguments.port, token, arguments.observation_log
+        arguments.host,
+        arguments.port,
+        token,
+        arguments.observation_log,
+        candidate_006_audit_path=arguments.candidate_006_audit,
     )
     print(
         f"QuantForge read-only MT5 bridge listening on http://{arguments.host}:{arguments.port}"

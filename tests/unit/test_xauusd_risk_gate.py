@@ -130,7 +130,10 @@ def test_risk_fraction_must_be_bounded(risk_fraction: str) -> None:
     result = evaluate(
         policy=XAUUSDRiskPolicy(Decimal(risk_fraction), Decimal("100"))
     )
-    assert "risk-per-trade policy must be greater than zero and at most one" in result.reasons
+    assert (
+        "risk-per-trade policy must be greater than zero and at most one"
+        in result.reasons
+    )
 
 
 @pytest.mark.parametrize("value", ["nan", "Infinity", "-Infinity"])

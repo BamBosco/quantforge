@@ -120,9 +120,12 @@ def _validate(
     if policy.risk_per_trade is not None and not policy.risk_per_trade.is_finite():
         reasons.append("risk-per-trade policy must be finite")
     elif policy.risk_per_trade is not None and not 0 < policy.risk_per_trade <= 1:
-        reasons.append("risk-per-trade policy must be greater than zero and at most one")
+        reasons.append(
+            "risk-per-trade policy must be greater than zero and at most one"
+        )
     if policy.maximum_position_size is not None and (
-        not policy.maximum_position_size.is_finite() or policy.maximum_position_size <= 0
+        not policy.maximum_position_size.is_finite()
+        or policy.maximum_position_size <= 0
     ):
         reasons.append("maximum-position policy must be a positive finite value")
     return reasons

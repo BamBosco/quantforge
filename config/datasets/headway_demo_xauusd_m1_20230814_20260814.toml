@@ -1,0 +1,16 @@
+# Immutable identity for the three-year MT5 export. The file was exported while
+# the Mac used America/Los_Angeles; MT5 Bars timestamps matched the Mac clock.
+[identity]
+dataset_id = "headway_demo_xauusd_m1_20230814_20260814"
+instrument = "XAUUSD"
+sha256 = "488fa6147f1814b6671e67f853ed59d796e227b87c9f7004626ccd30fde7ace7"
+
+[time]
+source_timezone = "America/Los_Angeles"
+start_utc = "2023-08-14T08:01:00+00:00"
+end_utc = "2026-08-14T17:53:00+00:00"
+
+[quality]
+# Session exclusions are discovered mechanically by the runner's exact
+# 08:20-to-13:30 New York continuity check; no manual exclusions are yet set.
+excluded_session_days = []

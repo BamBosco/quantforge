@@ -1,0 +1,34 @@
+# Captured from the Headway Demo MT5 XAUUSD Symbol Specification on 2026-08-14.
+# Dynamic values such as spread and margin must be queried at runtime, never
+# assumed from this file.
+[profile]
+name = "headway_demo"
+environment = "demo"
+
+[instruments.XAUUSD]
+digits = 2
+point_size = "0.01"
+contract_size_xau = "100"
+profit_currency = "USD"
+margin_currency = "XAU"
+calculation_mode = "forex"
+spread_mode = "floating"
+stops_level_points = 0
+execution_mode = "market"
+gtc_mode = "good_till_cancelled"
+allowed_fillings = ["fill_or_kill", "immediate_or_cancel"]
+minimum_volume = "0.01"
+maximum_volume = "100"
+volume_step = "0.01"
+
+[instruments.XAUUSD.sessions]
+# These session times are displayed by Headway's chart server. Its historical
+# timezone and DST policy remain unconfirmed and must not be used to normalize
+# MT5 CSV exports. Each local export records the Mac's timezone at export time
+# in its own dataset manifest.
+timezone = "unresolved_broker_server_time"
+monday = "01:05-23:58"
+tuesday = "01:05-23:58"
+wednesday = "01:05-23:58"
+thursday = "01:05-23:58"
+friday = "01:05-23:58"

@@ -1,0 +1,36 @@
+# Approved research baseline. Not a paper- or live-trading authorization.
+[identity]
+strategy_id = "orb_xauusd_headway_demo_baseline"
+version = "0.1"
+trading_mode = "research"
+
+[instrument]
+broker_profile = "headway_demo"
+symbol = "XAUUSD"
+
+[session]
+timezone = "America/New_York"
+opening_time = "08:20"
+opening_range_minutes = 15
+exit_time = "13:30"
+
+[entry]
+mode = "two_sided_oco_stop"
+buffer_model = "crabel_stretch_10_sessions"
+max_completed_entries_per_session = 1
+
+[risk]
+stop_model = "opposite_range_side_plus_entry_buffer"
+position_sizing_authority = "risk_engine"
+
+[filters]
+enabled = []
+
+[backtest_cost_sensitivity]
+# M1 bars cannot reveal the actual fill sequence or slippage. These are
+# sensitivity scenarios, not asserted execution estimates or an approval to trade.
+scenarios = [
+  { name = "recorded_spread_only", additional_slippage_points = "0" },
+  { name = "plus_1_point", additional_slippage_points = "1" },
+  { name = "plus_3_points", additional_slippage_points = "3" },
+]

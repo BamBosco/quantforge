@@ -1,0 +1,37 @@
+# Approved Experiment 001. Research only: this configuration cannot authorise trading.
+[identity]
+strategy_id = "intraday_momentum_xauusd_headway_demo"
+version = "0.1"
+trading_mode = "research"
+
+[instrument]
+broker_profile = "headway_demo"
+symbol = "XAUUSD"
+
+[session]
+timezone = "America/New_York"
+signal_start = "08:20"
+entry_time = "08:50"
+exit_time = "13:30"
+signal_window_minutes = 30
+max_completed_entries_per_session = 1
+
+[entry]
+mode = "market_at_entry_bar_open"
+signal = "buy_when_signal_close_above_signal_open_sell_when_below"
+
+[risk]
+buy_stop_model = "lowest_bid_low_of_signal_window"
+sell_stop_model = "highest_ask_high_of_signal_window"
+position_sizing_authority = "risk_engine"
+
+[filters]
+enabled = []
+
+[backtest_cost_sensitivity]
+# Recorded spread plus adverse slippage sensitivity. These are not actual-fill claims.
+scenarios = [
+  { name = "recorded_spread_only", additional_slippage_points = "0" },
+  { name = "plus_1_point", additional_slippage_points = "1" },
+  { name = "plus_3_points", additional_slippage_points = "3" },
+]

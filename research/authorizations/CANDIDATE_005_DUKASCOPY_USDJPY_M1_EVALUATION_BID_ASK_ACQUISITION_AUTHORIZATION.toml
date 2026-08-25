@@ -1,0 +1,98 @@
+# Candidate 005 — research-only Dukascopy USD/JPY M1 evaluation acquisition
+# This authorization is limited to exactly the two native evaluation-side files below.
+
+[authorization]
+id = "candidate_005_dukascopy_usdjpy_m1_evaluation_bid_ask_acquisition"
+status = "AUTHORIZED_FOR_ACQUISITION_ONLY"
+research_only = true
+maximum_file_acquisitions = 2
+authorized_operation = "Acquire exactly one native BID M1 CSV and one native ASK M1 CSV from Dukascopy Historical Data Export."
+prohibited_operations = [
+  "MetaTrader 5 Bars export",
+  "confirmation acquisition",
+  "confirmation inspection",
+  "structural validation",
+  "strategy creation or modification",
+  "signal calculation",
+  "replay",
+  "backtest",
+  "optimization",
+  "tuning",
+  "performance analysis",
+  "paper trading",
+  "simulated orders",
+  "broker execution",
+  "live trading",
+]
+
+[candidate]
+id = "candidate_005"
+instrument_display = "USD/JPY"
+instrument_identifier = "USDJPY"
+provider = "Dukascopy Bank SA"
+role = "evaluation_only"
+
+[source_interface]
+name = "Dukascopy Historical Data Export"
+url = "https://www.dukascopy.com/swiss/english/marketwatch/historical/"
+method = "Provider historical-data web interface; select USD/JPY, M1, native BID or native ASK, GMT output, CSV output."
+explicitly_excluded_method = "MetaTrader 5 Symbols -> Bars -> Export Bars"
+provider_documentation = "https://www.dukascopy.com/media/pdf/japan/manual/historical-data.pdf"
+period = "M1"
+timestamp_output_basis = "GMT/UTC"
+file_format = "CSV"
+expected_schema_status = "DOCUMENTED_INTERFACE_SUPPORTS_MINUTE_DATA_AND_BID_OR_ASK_SELECTION; EXACT_SERIALIZED_COLUMNS_REMAIN_UNVERIFIED_UNTIL_SEPARATELY_AUTHORIZED_STRUCTURAL_VALIDATION"
+
+[evaluation_range]
+start_utc = "2019-08-01T00:00:00Z"
+end_utc = "2023-08-01T23:59:00Z"
+timezone = "UTC"
+must_be_identical_for_bid_and_ask = true
+
+[acquisitions.bid]
+native_side = "BID"
+filename = "USDJPY_M1_BID_201908010000_202308012359_UTC.csv"
+destination = "data/candidate_005_dukascopy_historical_raw/evaluation/USDJPY_M1_BID_201908010000_202308012359_UTC.csv"
+manifest_destination = "data/candidate_005_dukascopy_historical_raw/evaluation/USDJPY_M1_BID_201908010000_202308012359_UTC.manifest.toml"
+
+[acquisitions.ask]
+native_side = "ASK"
+filename = "USDJPY_M1_ASK_201908010000_202308012359_UTC.csv"
+destination = "data/candidate_005_dukascopy_historical_raw/evaluation/USDJPY_M1_ASK_201908010000_202308012359_UTC.csv"
+manifest_destination = "data/candidate_005_dukascopy_historical_raw/evaluation/USDJPY_M1_ASK_201908010000_202308012359_UTC.manifest.toml"
+
+[matched_pair]
+pair_id = "candidate_005_usdjpy_m1_201908010000_202308012359_utc_bid_ask"
+alignment_key = "exact UTC bar-open timestamp and identical M1 period"
+alignment_rule = "Later, separately authorized structural validation may align only exact timestamp intersections; no resampling, interpolation, nearest-neighbour matching, or imputation."
+spread_rule = "Future execution-price work may derive side-aware spread only from exact matched native BID/ASK values after structural validation."
+unmatched_timestamp_rule = "Record as unmatched; do not synthesize the missing side or infer spread."
+
+[manifest_requirements]
+required_for_each_file = [
+  "candidate_id",
+  "role=evaluation",
+  "provider and interface URL",
+  "instrument identifier",
+  "native side",
+  "M1 period",
+  "GMT/UTC selection",
+  "requested UTC range",
+  "acquisition_timestamp_utc",
+  "exact filename and destination",
+  "byte_size",
+  "sha256",
+  "source/provenance note",
+  "matched_pair_id",
+  "raw-file-unchanged assertion",
+]
+
+[audit_artifact]
+existing_rejected_mt5_csv = "/Users/mac/Library/Application Support/net.metaquotes.wine.metatrader5/drive_c/users/user/Documents/USDJPY_M1_201908010000_202308012300.csv"
+existing_rejected_mt5_csv_sha256 = "ca9dd4bcdb5307b52cac55a34c6667b83277dddc540fb95258613f33b02bee22"
+status = "IMMUTABLE_AUDIT_ARTIFACT_REJECTED_FOR_M1_RESEARCH_USE"
+reason = "Mixed daily/hourly timestamps, no M1 intervals, unproven timestamp basis, unknown side, and uniformly zero spread."
+
+[confirmation]
+status = "NOT_AUTHORIZED"
+rule = "No Candidate 005 confirmation acquisition, file creation, listing, checksum, inspection, parsing, preview, structural validation, replay, or analysis is authorized."

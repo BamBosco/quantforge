@@ -1,0 +1,30 @@
+[instrument]
+internal_symbol = "XAUUSD"
+broker_symbol = "XAUUSD"
+timeframe = "M1"
+digits = 3
+point = 0.001
+contract_size = 100.0
+volume_min = 0.01
+volume_max = 10000.0
+volume_step = 0.01
+
+[account]
+currency = "USD"
+demo_only = true
+
+[execution]
+filling_mode = "immediate_or_cancel"
+order_submission_enabled = false
+
+[logging]
+audit_journal_path = "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
+
+unresolved_requirements = [
+  "maximum_spread_policy",
+  "risk_sizing_formula",
+  "maximum_position_size",
+  "execution_deviation",
+  "stop_freeze_levels",
+  "trading_session_policy",
+]

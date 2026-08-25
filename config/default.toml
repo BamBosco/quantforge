@@ -1,0 +1,16 @@
+# Non-secret defaults for paper trading. Production profiles require a separate,
+# reviewed change and must remain stricter than this policy.
+[runtime]
+environment = "development"
+trading_mode = "research"
+live_trading_enabled = false
+
+[risk]
+risk_per_trade = 0.01
+max_daily_drawdown = 0.03
+max_total_drawdown = 0.06
+max_correlated_open_risk = 0.03
+require_stop_loss = true
+
+[storage]
+database_url = "sqlite:///quantforge.sqlite3"

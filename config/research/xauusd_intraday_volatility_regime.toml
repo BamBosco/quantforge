@@ -1,0 +1,22 @@
+# Offline research only. This file has no trade or Risk Engine authority.
+[identity]
+study_id = "xauusd_intraday_volatility_regime"
+version = "0.1"
+
+[session]
+timezone = "America/New_York"
+predictor_start = "08:20"
+predictor_end = "08:50"
+outcome_end = "13:30"
+
+[forecaster]
+training_sessions = 252
+validation_sessions = 63
+validation_step_sessions = 63
+minimum_bucket_sessions = 20
+
+[validation]
+holdout_fraction = "0.20"
+minimum_scored_sessions = 100
+minimum_improvement = "0.05"
+minimum_positive_windows = 4

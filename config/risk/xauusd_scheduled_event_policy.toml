@@ -1,0 +1,20 @@
+# Research and paper-trading policy only. A calendar provider adapter must map
+# its immutable provider IDs to these canonical event types before use.
+[policy]
+policy_id = "xauusd_usd_tier_1_scheduled_event_risk"
+version = "0.1"
+blackout_minutes_before_event = 180
+maximum_calendar_age_minutes = 60
+requires_manual_post_event_release = true
+
+[[scope]]
+instrument = "XAUUSD"
+event_types = [
+  "US_FOMC_POLICY_DECISION",
+  "US_FOMC_MINUTES",
+  "US_FOMC_PRESS_CONFERENCE",
+  "US_EMPLOYMENT_SITUATION",
+  "US_CPI",
+  "US_PCE_PRICE_INDEX",
+  "US_GDP",
+]

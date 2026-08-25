@@ -1,0 +1,63 @@
+# Phase 1 only: data, agent decisions, and audit records. This profile cannot
+# authorize live trading or order submission.
+
+[instrument]
+internal_symbol = "USDJPY"
+broker_symbol = "USDJPY" # Override for broker variants, e.g. USDJPY.a.
+timeframe = "M1"
+closed_candles_only = true
+
+[execution]
+account_mode = "demo"
+live_trading_enabled = false
+order_submission_enabled = false
+magic_number = 26082401
+deviation_points = 10
+# Must be confirmed at runtime against the connected broker's reported modes.
+filling_mode = "immediate_or_cancel"
+
+[risk]
+risk_per_trade = 0.005
+max_daily_loss = 0.02
+max_open_positions = 1
+max_spread_points = 20
+max_position_size = 0.10
+require_stop_loss = true
+require_take_profit = true
+# Volume minimum, maximum, and step are queried at runtime from MT5.
+broker_lot_constraints_source = "mt5_symbol_info"
+
+[session]
+# IANA timezone for the strategy schedule, deliberately not a broker timezone.
+timezone = "Africa/Lagos"
+start = "00:05"
+end = "22:55"
+
+[mt5]
+# Optional local terminal executable path. Secrets must remain in the environment.
+terminal_path = ""
+login_env_var = "QUANTFORGE_MT5_LOGIN"
+server_env_var = "QUANTFORGE_MT5_SERVER"
+password_env_var = "QUANTFORGE_MT5_PASSWORD"
+connection_timeout_seconds = 15
+data_freshness_seconds = 90
+
+[llm]
+# Passed through to TradingAgents' existing provider/client architecture.
+provider = "ollama"
+deep_think_model = "qwen3"
+quick_think_model = "qwen3"
+backend_url = "http://localhost:11434/v1"
+
+[logging]
+journal_path = "data/forex_mt5_demo/usdjpy_m1_demo.sqlite3"
+required_fields = [
+  "candle_timestamp",
+  "market_snapshot",
+  "agent_decision",
+  "trade_intent",
+  "risk_decision",
+  "execution_result",
+  "broker_ticket",
+  "position_state",
+]

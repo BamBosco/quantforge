@@ -1,0 +1,9 @@
+# Example mapping only. Keep broker credentials and bridge tokens outside Git.
+[profile]
+id = "example_demo_mt5"
+adapter = "mt5"
+environment = "demo"
+
+[instruments.GOLD_USD]
+broker_symbol = "BROKER_DEFINED_SYMBOL"
+enabled = true

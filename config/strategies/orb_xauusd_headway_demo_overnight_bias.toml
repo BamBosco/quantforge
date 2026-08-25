@@ -1,0 +1,37 @@
+# Experiment 002. Research only; this does not authorise paper or live trading.
+[identity]
+strategy_id = "orb_xauusd_headway_demo_overnight_bias"
+version = "0.1"
+trading_mode = "research"
+
+[instrument]
+broker_profile = "headway_demo"
+symbol = "XAUUSD"
+
+[session]
+timezone = "America/New_York"
+opening_time = "08:20"
+opening_range_minutes = 15
+exit_time = "13:30"
+
+[entry]
+mode = "one_sided_directional_stop"
+buffer_model = "crabel_stretch_10_sessions"
+max_completed_entries_per_session = 1
+
+[risk]
+stop_model = "opposite_range_side_plus_entry_buffer"
+position_sizing_authority = "risk_engine"
+
+[filters.directional_bias]
+mode = "overnight_open_to_pre_range_close"
+start_time = "00:00"
+end_time = "08:19"
+neutral_action = "no_trade"
+
+[backtest_cost_sensitivity]
+scenarios = [
+  { name = "recorded_spread_only", additional_slippage_points = "0" },
+  { name = "plus_1_point", additional_slippage_points = "1" },
+  { name = "plus_3_points", additional_slippage_points = "3" },
+]

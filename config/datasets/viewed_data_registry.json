@@ -1,0 +1,18 @@
+{
+  "viewed_datasets": [
+    {
+      "dataset_id": "headway_demo_xauusd_m1_20230814_20260814",
+      "venue": "Headway-Demo",
+      "instrument": "XAUUSD",
+      "start_utc": "2023-08-14T08:01:00+00:00",
+      "end_utc": "2026-08-14T17:53:00+00:00"
+    },
+    {
+      "dataset_id": "headway_demo_xauusd_m1_20260505_20260814",
+      "venue": "Headway-Demo",
+      "instrument": "XAUUSD",
+      "start_utc": "2026-05-05T11:05:00+00:00",
+      "end_utc": "2026-08-14T16:52:00+00:00"
+    }
+  ]
+}

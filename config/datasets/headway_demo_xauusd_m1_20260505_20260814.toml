@@ -1,0 +1,26 @@
+# Immutable identity and known quality exclusions for this specific local export.
+[identity]
+dataset_id = "headway_demo_xauusd_m1_20260505_20260814"
+instrument = "XAUUSD"
+sha256 = "51a8bf300863451412445f367022a96c2fb34f51633f92c2bfd788b301ec5741"
+
+[time]
+source_timezone = "America/Los_Angeles"
+start_utc = "2026-05-05T11:05:00+00:00"
+end_utc = "2026-08-14T16:52:00+00:00"
+
+[quality]
+# Partial export days, special/short sessions, and sessions with any observed
+# M1 omission. They are excluded from both results and the ten-session Stretch.
+excluded_session_days = [
+  "2026-05-05",
+  "2026-05-25",
+  "2026-06-08",
+  "2026-06-12",
+  "2026-06-19",
+  "2026-07-03",
+  "2026-07-13",
+  "2026-07-14",
+  "2026-08-07",
+  "2026-08-14",
+]

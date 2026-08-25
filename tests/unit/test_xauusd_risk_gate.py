@@ -108,5 +108,38 @@ def test_rejects_wrong_or_missing_broker_facts(changes: dict[str, object]) -> No
     assert evaluate(broker_metadata=metadata(**changes)).status == "rejected"
 
 
+@pytest.mark.parametrize(
+    "changes,reason",
+    [
+        ({"entry_price": 2000, "stop_loss": 2000}, "entry and stop_loss must differ"),
+        ({"entry_price": 2000, "stop_loss": 1999, "take_profit": 2001}, None),
+    ],
+)
+def test_entry_stop_edge_cases(
+    changes: dict[str, object], reason: str | None
+) -> None:
+    result = evaluate(trade_intent=intent(**changes))
+    if reason is None:
+        assert result.status == "approved"
+    else:
+        assert reason in result.reasons
+
+
+@pytest.mark.parametrize("risk_fraction", ["0", "1.01", "-0.1"])
+def test_risk_fraction_must_be_bounded(risk_fraction: str) -> None:
+    result = evaluate(
+        policy=XAUUSDRiskPolicy(Decimal(risk_fraction), Decimal("100"))
+    )
+    assert "risk-per-trade policy must be greater than zero and at most one" in result.reasons
+
+
+@pytest.mark.parametrize("value", ["nan", "Infinity", "-Infinity"])
+def test_non_finite_numeric_values_fail_closed(value: str) -> None:
+    result = evaluate(
+        broker_metadata=metadata(tick_size=value),
+    )
+    assert result.status == "rejected"
+
+
 def test_audit_payload_is_non_executable() -> None:
     assert evaluate().audit_payload()["non_executable"] is True

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import uuid4
 
@@ -25,7 +25,7 @@ def test_approved_order_requires_risk_decision_traceability() -> None:
         instrument="EURUSD",
         side="buy",
         quantity=Decimal("0.10"),
-        expires_at=datetime(2026, 8, 14, tzinfo=timezone.utc),
+        expires_at=datetime(2026, 8, 14, tzinfo=UTC),
     )
 
     assert order.policy_version == "0.1"

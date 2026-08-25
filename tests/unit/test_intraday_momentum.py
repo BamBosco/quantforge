@@ -10,7 +10,6 @@ from quantforge.backtest.intraday_momentum import (
 from quantforge.backtest.models import MinuteBar
 from quantforge.backtest.replay import SessionOutcome, SimulationEventKind
 
-
 SESSION_DAY = date(2026, 8, 14)
 
 
@@ -65,8 +64,22 @@ def test_bullish_signal_fills_then_forces_exit() -> None:
     bars = session_bars()
     replace_bar(bars, 0, low=Decimal("99"))
     replace_bar(bars, 29, high=Decimal("102"), close=Decimal("102"))
-    replace_bar(bars, 30, open=Decimal("103"), high=Decimal("103"), low=Decimal("102"), close=Decimal("103"))
-    replace_bar(bars, 310, open=Decimal("105"), high=Decimal("105"), low=Decimal("105"), close=Decimal("105"))
+    replace_bar(
+        bars,
+        30,
+        open=Decimal("103"),
+        high=Decimal("103"),
+        low=Decimal("102"),
+        close=Decimal("103"),
+    )
+    replace_bar(
+        bars,
+        310,
+        open=Decimal("105"),
+        high=Decimal("105"),
+        low=Decimal("105"),
+        close=Decimal("105"),
+    )
 
     result = simulate_intraday_momentum_session(
         bars, session_day=SESSION_DAY, settings=settings()
@@ -89,8 +102,22 @@ def test_bearish_signal_uses_ask_based_stop_and_stops_out() -> None:
     bars = session_bars()
     replace_bar(bars, 0, high=Decimal("101"))
     replace_bar(bars, 29, low=Decimal("98"), close=Decimal("98"))
-    replace_bar(bars, 30, open=Decimal("98"), high=Decimal("99"), low=Decimal("98"), close=Decimal("98"))
-    replace_bar(bars, 31, open=Decimal("101"), high=Decimal("102"), low=Decimal("101"), close=Decimal("101"))
+    replace_bar(
+        bars,
+        30,
+        open=Decimal("98"),
+        high=Decimal("99"),
+        low=Decimal("98"),
+        close=Decimal("98"),
+    )
+    replace_bar(
+        bars,
+        31,
+        open=Decimal("101"),
+        high=Decimal("102"),
+        low=Decimal("101"),
+        close=Decimal("101"),
+    )
 
     result = simulate_intraday_momentum_session(
         bars, session_day=SESSION_DAY, settings=settings()
@@ -117,7 +144,14 @@ def test_entry_minute_stop_touch_is_ambiguous() -> None:
     bars = session_bars()
     replace_bar(bars, 0, low=Decimal("99"))
     replace_bar(bars, 29, high=Decimal("102"), close=Decimal("102"))
-    replace_bar(bars, 30, open=Decimal("103"), high=Decimal("103"), low=Decimal("98"), close=Decimal("100"))
+    replace_bar(
+        bars,
+        30,
+        open=Decimal("103"),
+        high=Decimal("103"),
+        low=Decimal("98"),
+        close=Decimal("100"),
+    )
 
     result = simulate_intraday_momentum_session(
         bars, session_day=SESSION_DAY, settings=settings()

@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from decimal import Decimal, ROUND_CEILING
+from decimal import ROUND_CEILING, Decimal
 from zoneinfo import ZoneInfo
 
 from quantforge.backtest.models import MinuteBar
@@ -30,14 +30,17 @@ class VolatilityRegimeSettings:
     def __post_init__(self) -> None:
         if not self.predictor_start < self.predictor_end < self.outcome_end:
             raise ValueError("volatility-regime times must be strictly ordered")
-        if min(
-            self.training_sessions,
-            self.validation_sessions,
-            self.validation_step_sessions,
-            self.minimum_bucket_sessions,
-            self.minimum_scored_sessions,
-            self.minimum_positive_windows,
-        ) <= 0:
+        if (
+            min(
+                self.training_sessions,
+                self.validation_sessions,
+                self.validation_step_sessions,
+                self.minimum_bucket_sessions,
+                self.minimum_scored_sessions,
+                self.minimum_positive_windows,
+            )
+            <= 0
+        ):
             raise ValueError("volatility-regime counts must be positive")
         if not Decimal("0") < self.holdout_fraction < Decimal("1"):
             raise ValueError("holdout fraction must be between zero and one")
@@ -213,7 +216,10 @@ def _absolute_close_moves(closes: Sequence[Decimal]) -> Decimal:
     if len(closes) < 2:
         raise ValueError("at least two closes are required")
     return sum(
-        (abs(current - previous) for previous, current in zip(closes, closes[1:], strict=False)),
+        (
+            abs(current - previous)
+            for previous, current in zip(closes, closes[1:], strict=False)
+        ),
         start=Decimal("0"),
     )
 
@@ -221,21 +227,27 @@ def _absolute_close_moves(closes: Sequence[Decimal]) -> Decimal:
 def _walk_forward_windows(
     development: Sequence[VolatilityObservation],
     settings: VolatilityRegimeSettings,
-) -> tuple[tuple[tuple[VolatilityObservation, ...], tuple[VolatilityObservation, ...]], ...]:
+) -> tuple[
+    tuple[tuple[VolatilityObservation, ...], tuple[VolatilityObservation, ...]], ...
+]:
     windows = []
     start = 0
-    while (
-        start + settings.training_sessions + settings.validation_sessions
-        <= len(development)
+    while start + settings.training_sessions + settings.validation_sessions <= len(
+        development
     ):
         training_end = start + settings.training_sessions
         validation_end = training_end + settings.validation_sessions
         windows.append(
-            (tuple(development[start:training_end]), tuple(development[training_end:validation_end]))
+            (
+                tuple(development[start:training_end]),
+                tuple(development[training_end:validation_end]),
+            )
         )
         start += settings.validation_step_sessions
     if not windows:
-        raise ValueError("insufficient development sessions for walk-forward validation")
+        raise ValueError(
+            "insufficient development sessions for walk-forward validation"
+        )
     return tuple(windows)
 
 
@@ -319,12 +331,16 @@ def _combine_metrics(metrics: Sequence[ForecastMetrics]) -> ForecastMetrics:
     if not metrics:
         raise ValueError("at least one walk-forward metric is required")
     total_sessions = sum(item.scored_sessions for item in metrics)
-    baseline_mae = sum(
-        (item.baseline_mae * item.scored_sessions for item in metrics), Decimal("0")
-    ) / total_sessions
-    model_mae = sum(
-        (item.model_mae * item.scored_sessions for item in metrics), Decimal("0")
-    ) / total_sessions
+    baseline_mae = (
+        sum(
+            (item.baseline_mae * item.scored_sessions for item in metrics), Decimal("0")
+        )
+        / total_sessions
+    )
+    model_mae = (
+        sum((item.model_mae * item.scored_sessions for item in metrics), Decimal("0"))
+        / total_sessions
+    )
     return ForecastMetrics(
         scored_sessions=total_sessions,
         baseline_mae=baseline_mae,
@@ -382,4 +398,6 @@ def _validate_observations(observations: Sequence[VolatilityObservation]) -> Non
     if not observations:
         raise ValueError("at least one volatility observation is required")
     if days != tuple(sorted(days)) or len(set(days)) != len(days):
-        raise ValueError("volatility observations must have unique ascending session dates")
+        raise ValueError(
+            "volatility observations must have unique ascending session dates"
+        )

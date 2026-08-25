@@ -96,9 +96,7 @@ def complete_minute_window(
         for offset in range(_minutes_between(start, end) + 1)
     }
     selected = tuple(
-        bar
-        for bar in bars
-        if start <= bar.timestamp.astimezone(start.tzinfo) <= end
+        bar for bar in bars if start <= bar.timestamp.astimezone(start.tzinfo) <= end
     )
     observed = [bar.timestamp.astimezone(start.tzinfo) for bar in selected]
     if len(selected) != len(expected) or set(observed) != expected:

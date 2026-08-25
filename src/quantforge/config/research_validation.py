@@ -1,9 +1,9 @@
 """Loading for versioned research-validation protocols."""
 
+import tomllib
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-import tomllib
 
 from quantforge.backtest.validation import ResearchGate
 
@@ -17,9 +17,10 @@ class WalkForwardSettings:
     step_sessions: int
 
     def __post_init__(self) -> None:
-        if min(
-            self.training_sessions, self.validation_sessions, self.step_sessions
-        ) <= 0:
+        if (
+            min(self.training_sessions, self.validation_sessions, self.step_sessions)
+            <= 0
+        ):
             raise ValueError("walk-forward settings must be positive")
 
 

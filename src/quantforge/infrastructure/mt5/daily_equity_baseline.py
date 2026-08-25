@@ -82,8 +82,11 @@ class MT5DailyEquityBaselineResolver:
             or "demo" not in account_server.lower()
         ):
             return None
-        return account_id, account_server, broker_symbol, observed.replace(
-            hour=0, minute=0, second=0, microsecond=0
+        return (
+            account_id,
+            account_server,
+            broker_symbol,
+            observed.replace(hour=0, minute=0, second=0, microsecond=0),
         )
 
     def _earliest_valid_source(

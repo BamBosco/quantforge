@@ -143,8 +143,7 @@ class OllamaResearchBackend:
                 "or fewer. BUY requires stop_loss < entry_price < take_profit. SELL "
                 "requires take_profit < entry_price < stop_loss. This is research "
                 "only: never issue an order or execution "
-                "instruction. Context: "
-                + payload
+                "instruction. Context: " + payload
             )
         return (
             f"You are the {role} role in a non-executable USDJPY M1 research workflow. "

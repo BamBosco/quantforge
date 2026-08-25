@@ -44,7 +44,9 @@ class TradingAgentsForexResearch:
         | None = None,
     ) -> None:
         if not 0 < max_risk_percent <= 1:
-            raise ValueError("max_risk_percent must be greater than zero and at most one")
+            raise ValueError(
+                "max_risk_percent must be greater than zero and at most one"
+            )
         self._audit_log = audit_log
         self._backend = backend
         self._max_risk_percent = max_risk_percent
@@ -78,12 +80,16 @@ class TradingAgentsForexResearch:
         if not reasons:
             reports: dict[str, str] = {}
             for role in ("technical", "bull", "bear", "trader", "risk_portfolio"):
-                reports[role] = self._backend.complete(role, {"snapshot": snapshot, "reports": reports})
+                reports[role] = self._backend.complete(
+                    role, {"snapshot": snapshot, "reports": reports}
+                )
             raw = {"reports": reports, "final": reports["risk_portfolio"]}
             intent, reasons = self._parse_intent(
                 reports["risk_portfolio"], snapshot, self._max_risk_percent
             )
-            finished = (completed_at or evaluated_at or datetime.now(UTC)).astimezone(UTC)
+            finished = (completed_at or evaluated_at or datetime.now(UTC)).astimezone(
+                UTC
+            )
             if not reasons:
                 reasons = self._snapshot_issues(snapshot, finished)
                 if reasons:
@@ -92,7 +98,9 @@ class TradingAgentsForexResearch:
         self._audit_log.append_agent_decision(
             observation_id=str(accepted["observation_id"]),
             status="accepted" if result.accepted else "rejected",
-            reasons=result.reasons, agent_decision=raw, trade_intent=intent,
+            reasons=result.reasons,
+            agent_decision=raw,
+            trade_intent=intent,
         )
         if result.accepted and intent is not None and self._risk_gate is not None:
             context = (
@@ -139,7 +147,19 @@ class TradingAgentsForexResearch:
             return None, ["malformed agent output"]
         if not isinstance(value, dict):
             return None, ["malformed agent output"]
-        required = {"symbol", "timestamp", "direction", "entry_type", "entry_price", "stop_loss", "take_profit", "risk_percent", "confidence", "reason", "expiry"}
+        required = {
+            "symbol",
+            "timestamp",
+            "direction",
+            "entry_type",
+            "entry_price",
+            "stop_loss",
+            "take_profit",
+            "risk_percent",
+            "confidence",
+            "reason",
+            "expiry",
+        }
         missing = required.difference(value)
         if missing:
             return None, ["missing trade intent fields: " + ", ".join(sorted(missing))]
@@ -155,7 +175,9 @@ class TradingAgentsForexResearch:
         )
         if snapshot_time is None or decision_time != snapshot_time:
             return None, ["decision timestamp does not match snapshot"]
-        expiry = TradingAgentsForexResearch._utc_timestamp(value["expiry"], "invalid expiry")
+        expiry = TradingAgentsForexResearch._utc_timestamp(
+            value["expiry"], "invalid expiry"
+        )
         if expiry is None:
             return None, ["invalid expiry"]
         if expiry <= decision_time:
@@ -164,7 +186,13 @@ class TradingAgentsForexResearch:
             return value, []
         if value["direction"] not in {"BUY", "SELL"}:
             return None, ["invalid direction"]
-        for field in ("entry_price", "stop_loss", "take_profit", "risk_percent", "confidence"):
+        for field in (
+            "entry_price",
+            "stop_loss",
+            "take_profit",
+            "risk_percent",
+            "confidence",
+        ):
             if (
                 not isinstance(value[field], (int, float))
                 or isinstance(value[field], bool)
@@ -175,9 +203,15 @@ class TradingAgentsForexResearch:
             return None, ["invalid risk_percent"]
         if value["stop_loss"] <= 0 or value["take_profit"] <= 0:
             return None, ["missing protective levels"]
-        if value["direction"] == "BUY" and not value["stop_loss"] < value["entry_price"] < value["take_profit"]:
+        if (
+            value["direction"] == "BUY"
+            and not value["stop_loss"] < value["entry_price"] < value["take_profit"]
+        ):
             return None, ["invalid BUY protective levels"]
-        if value["direction"] == "SELL" and not value["take_profit"] < value["entry_price"] < value["stop_loss"]:
+        if (
+            value["direction"] == "SELL"
+            and not value["take_profit"] < value["entry_price"] < value["stop_loss"]
+        ):
             return None, ["invalid SELL protective levels"]
         return value, []
 

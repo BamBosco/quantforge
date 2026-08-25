@@ -562,7 +562,9 @@ class SQLiteMarketObservationLog:
                 ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    observation_id, status, json.dumps(list(reasons)),
+                    observation_id,
+                    status,
+                    json.dumps(list(reasons)),
                     canonical_json(agent_decision),
                     canonical_json(trade_intent) if trade_intent is not None else None,
                     datetime.now(UTC).isoformat(),
@@ -606,7 +608,8 @@ class SQLiteMarketObservationLog:
                 "reasons": json.loads(str(row["rejection_reasons_json"])),
                 "agent_decision": json.loads(str(row["agent_decision_json"])),
                 "trade_intent": json.loads(str(row["trade_intent_json"]))
-                if row["trade_intent_json"] is not None else None,
+                if row["trade_intent_json"] is not None
+                else None,
                 "created_at_utc": str(row["created_at_utc"]),
             }
             for row in rows

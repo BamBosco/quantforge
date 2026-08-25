@@ -14,7 +14,6 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-
 OUTPUT = Path("output/pdf/quantforge_project_status.pdf")
 
 
@@ -109,9 +108,7 @@ def build() -> None:
     )
     story = [
         paragraph("QuantForge Project Status", styles["TitleQF"]),
-        paragraph(
-            "Implementation assessment - 20 August 2026", styles["SubheadQF"]
-        ),
+        paragraph("Implementation assessment - 20 August 2026", styles["SubheadQF"]),
     ]
 
     metrics = Table(
@@ -165,7 +162,8 @@ def build() -> None:
             paragraph("0.1 Foundation", styles["CellBoldQF"]),
             paragraph("100%", styles["CellQF"]),
             paragraph(
-                "Architecture, policies, typed contracts, configuration, and documentation are in place.",
+                "Architecture, policies, typed contracts, configuration, and "
+                "documentation are in place.",
                 styles["CellQF"],
             ),
         ],
@@ -173,7 +171,8 @@ def build() -> None:
             paragraph("0.2 Data ingestion", styles["CellBoldQF"]),
             paragraph("~70%", styles["CellQF"]),
             paragraph(
-                "MT5 CSV ingestion, dataset manifests, and quality checks exist. Governed durable storage and broader feed validation remain.",
+                "MT5 CSV ingestion, dataset manifests, and quality checks exist. "
+                "Governed durable storage and broader feed validation remain.",
                 styles["CellQF"],
             ),
         ],
@@ -181,7 +180,9 @@ def build() -> None:
             paragraph("0.3 Portfolio + risk gate", styles["CellBoldQF"]),
             paragraph("~55%", styles["CellQF"]),
             paragraph(
-                "Position/P&L accounting and pure risk checks exist. Enforced decisions, durable journal, kill-switch orchestration, and reconciliation remain.",
+                "Position/P&L accounting and pure risk checks exist. Enforced "
+                "decisions, durable journal, kill-switch orchestration, and "
+                "reconciliation remain.",
                 styles["CellQF"],
             ),
         ],
@@ -189,7 +190,9 @@ def build() -> None:
             paragraph("0.4 Backtesting", styles["CellBoldQF"]),
             paragraph("~75%", styles["CellQF"]),
             paragraph(
-                "Deterministic ORB/momentum replay, cost and bias controls, reporting, and validation work exist. End-to-end reproducible gate evidence remains.",
+                "Deterministic ORB/momentum replay, cost and bias controls, "
+                "reporting, and validation work exist. End-to-end reproducible "
+                "gate evidence remains.",
                 styles["CellQF"],
             ),
         ],
@@ -197,7 +200,8 @@ def build() -> None:
             paragraph("0.5 Research lifecycle", styles["CellBoldQF"]),
             paragraph("~45%", styles["CellQF"]),
             paragraph(
-                "Research corpus, validation protocol, and chronological validation core exist. Promotion workflow and formal approvals remain.",
+                "Research corpus, validation protocol, and chronological validation "
+                "core exist. Promotion workflow and formal approvals remain.",
                 styles["CellQF"],
             ),
         ],
@@ -205,7 +209,8 @@ def build() -> None:
             paragraph("0.6 Paper execution", styles["CellBoldQF"]),
             paragraph("~10%", styles["CellQF"]),
             paragraph(
-                "Read-only MT5 bridge groundwork exists. Approved-order adapter, idempotency, reconciliation, and operator runbook remain.",
+                "Read-only MT5 bridge groundwork exists. Approved-order adapter, "
+                "idempotency, reconciliation, and operator runbook remain.",
                 styles["CellQF"],
             ),
         ],
@@ -213,7 +218,8 @@ def build() -> None:
             paragraph("0.7-1.0 Operations", styles["CellBoldQF"]),
             paragraph("~0-5%", styles["CellQF"]),
             paragraph(
-                "Policies point the way. Observability, alerting, drills, security/load reviews, and forward-test evidence remain.",
+                "Policies point the way. Observability, alerting, drills, "
+                "security/load reviews, and forward-test evidence remain.",
                 styles["CellQF"],
             ),
         ],
@@ -226,7 +232,12 @@ def build() -> None:
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#C5D4DE")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F4F8FA")]),
+                (
+                    "ROWBACKGROUNDS",
+                    (0, 1),
+                    (-1, -1),
+                    [colors.white, colors.HexColor("#F4F8FA")],
+                ),
                 ("LEFTPADDING", (0, 0), (-1, -1), 2.6 * mm),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 2.6 * mm),
                 ("TOPPADDING", (0, 0), (-1, -1), 2.4 * mm),
@@ -240,8 +251,8 @@ def build() -> None:
         paragraph(
             "Complete the governed paper-trading workflow: Trade Intent -> Risk "
             "Decision -> Approved Order -> Durable Journal -> Paper Execution -> "
-            "Reconciliation. This turns today\'s isolated components into a "
-            "non-bypassable, auditable path while preserving the project\'s no-live-" 
+            "Reconciliation. This turns today's isolated components into a "
+            "non-bypassable, auditable path while preserving the project's no-live-"
             "trading posture.",
             styles["BodyQF"],
         )

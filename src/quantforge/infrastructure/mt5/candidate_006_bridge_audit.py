@@ -51,9 +51,13 @@ class Candidate006BridgeAuditConsumer:
         payload: dict[str, Any],
     ) -> None:
         if observation.schema_version != 2:
-            raise Candidate006BridgeAuditError("Candidate 006 requires schema version 2")
+            raise Candidate006BridgeAuditError(
+                "Candidate 006 requires schema version 2"
+            )
         if receipt.quality_status != "accepted":
-            raise Candidate006BridgeAuditError("Candidate 006 requires an accepted receipt")
+            raise Candidate006BridgeAuditError(
+                "Candidate 006 requires an accepted receipt"
+            )
         if observation.broker_symbol != "XAUUSD":
             raise Candidate006BridgeAuditError("Candidate 006 requires XAUUSD")
         account = payload["account"]

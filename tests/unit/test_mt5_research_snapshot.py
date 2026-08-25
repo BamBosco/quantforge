@@ -49,22 +49,31 @@ def _observation(**changes: object) -> ObservationEnvelope:
             },
         },
         "quote": {
-            "bid": 159.080, "ask": 159.082,
+            "bid": 159.080,
+            "ask": 159.082,
             "tick_time_utc": (NOW - timedelta(seconds=5)).isoformat(),
             "spread_points": 2.0,
         },
         "candles": {
-            "timeframe": "M1", "forming": None,
-            "completed": [{
-                "open_time_utc": candle_time.isoformat(), "open": 159.070,
-                "high": 159.085, "low": 159.065, "close": 159.080,
-                "tick_volume": 25,
-            }],
+            "timeframe": "M1",
+            "forming": None,
+            "completed": [
+                {
+                    "open_time_utc": candle_time.isoformat(),
+                    "open": 159.070,
+                    "high": 159.085,
+                    "low": 159.065,
+                    "close": 159.080,
+                    "tick_volume": 25,
+                }
+            ],
         },
-        "positions": [], "active_orders": [],
+        "positions": [],
+        "active_orders": [],
         "deals": {
             "history_from_utc": (NOW - timedelta(seconds=5)).isoformat(),
-            "history_to_utc": (NOW - timedelta(seconds=5)).isoformat(), "items": [],
+            "history_to_utc": (NOW - timedelta(seconds=5)).isoformat(),
+            "items": [],
         },
         "terminal": {"connected": True},
         "data_quality": {"adapter_status": "ok", "missing_data": []},

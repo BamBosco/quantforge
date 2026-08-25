@@ -1,10 +1,10 @@
 """Dataset identity and exclusion controls for reproducible research runs."""
 
+import tomllib
 from dataclasses import dataclass
 from datetime import date, datetime
 from hashlib import sha256
 from pathlib import Path
-import tomllib
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +28,8 @@ def load_dataset_manifest(path: Path) -> DatasetManifest:
         identity = raw["identity"]
         time = raw["time"]
         excluded_days = frozenset(
-            date.fromisoformat(value) for value in raw["quality"]["excluded_session_days"]
+            date.fromisoformat(value)
+            for value in raw["quality"]["excluded_session_days"]
         )
         manifest = DatasetManifest(
             dataset_id=str(identity["dataset_id"]),

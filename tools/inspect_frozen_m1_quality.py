@@ -12,8 +12,14 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 REQUIRED_COLUMNS = {
-    "<DATE>", "<TIME>", "<OPEN>", "<HIGH>", "<LOW>", "<CLOSE>",
-    "<TICKVOL>", "<SPREAD>",
+    "<DATE>",
+    "<TIME>",
+    "<OPEN>",
+    "<HIGH>",
+    "<LOW>",
+    "<CLOSE>",
+    "<TICKVOL>",
+    "<SPREAD>",
 }
 WINDOW_START = time(8, 20)
 WINDOW_END = time(13, 30)
@@ -24,7 +30,11 @@ def parse_timestamp(row: dict[str, str], source_timezone: ZoneInfo) -> datetime:
     value = f"{row['<DATE>'].strip()} {row['<TIME>'].strip()}"
     for fmt in ("%Y.%m.%d %H:%M:%S", "%Y.%m.%d %H:%M"):
         try:
-            return datetime.strptime(value, fmt).replace(tzinfo=source_timezone).astimezone(UTC)
+            return (
+                datetime.strptime(value, fmt)
+                .replace(tzinfo=source_timezone)
+                .astimezone(UTC)
+            )
         except ValueError:
             pass
     raise ValueError("unsupported timestamp")
@@ -42,13 +52,18 @@ def inspect(path: Path, source_timezone: ZoneInfo) -> dict[str, object]:
 
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file, delimiter="\t")
-        if reader.fieldnames is None or not REQUIRED_COLUMNS.issubset(reader.fieldnames):
+        if reader.fieldnames is None or not REQUIRED_COLUMNS.issubset(
+            reader.fieldnames
+        ):
             raise ValueError("unsupported MT5 M1 schema")
         for _line, row in enumerate(reader, 2):
             counts["rows"] += 1
             try:
                 timestamp = parse_timestamp(row, source_timezone)
-                values = [Decimal(row[field].strip()) for field in ("<OPEN>", "<HIGH>", "<LOW>", "<CLOSE>")]
+                values = [
+                    Decimal(row[field].strip())
+                    for field in ("<OPEN>", "<HIGH>", "<LOW>", "<CLOSE>")
+                ]
                 tick_volume = int(row["<TICKVOL>"].strip())
                 spread = int(row["<SPREAD>"].strip())
             except (KeyError, ValueError, InvalidOperation):
@@ -86,7 +101,8 @@ def inspect(path: Path, source_timezone: ZoneInfo) -> dict[str, object]:
             required_days.append(session_day)
         session_day += timedelta(days=1)
     incomplete = [
-        day for day in required_days
+        day
+        for day in required_days
         if len(session_minutes[day]) != WINDOW_MINUTES or day in session_duplicate
     ]
     counts["required_weekdays"] = len(required_days)
@@ -109,23 +125,27 @@ def render(name: str, result: dict[str, object]) -> str:
     incomplete = result["incomplete"]
     assert isinstance(incomplete, list)
     dates = ", ".join(day.isoformat() for day in incomplete) or "none"
-    return "\n".join((
-        f"## {name}",
-        "",
-        f"- Valid rows: {counts.get('rows', 0)}",
-        f"- Actual UTC coverage: {result['first'].isoformat()} through {result['last'].isoformat()}",
-        f"- Malformed rows: {counts.get('malformed_rows', 0)}",
-        f"- Invalid OHLC: {counts.get('invalid_ohlc', 0)}",
-        f"- Non-positive prices: {counts.get('non_positive_prices', 0)}",
-        f"- Negative spreads: {counts.get('negative_spread', 0)}",
-        f"- Zero tick-volume rows: {counts.get('zero_tick_volume', 0)}",
-        f"- Required New York weekdays: {counts.get('required_weekdays', 0)}",
-        f"- Complete 08:20–13:30 sessions: {counts.get('complete_sessions', 0)}",
-        f"- Incomplete required sessions: {counts.get('incomplete_sessions', 0)}",
-        f"- Duplicate timestamps in required windows: {counts.get('required_window_duplicates', 0)}",
-        f"- Incomplete dates: {dates}",
-        "",
-    ))
+    return "\n".join(
+        (
+            f"## {name}",
+            "",
+            f"- Valid rows: {counts.get('rows', 0)}",
+            f"- Actual UTC coverage: {result['first'].isoformat()} through "
+            f"{result['last'].isoformat()}",
+            f"- Malformed rows: {counts.get('malformed_rows', 0)}",
+            f"- Invalid OHLC: {counts.get('invalid_ohlc', 0)}",
+            f"- Non-positive prices: {counts.get('non_positive_prices', 0)}",
+            f"- Negative spreads: {counts.get('negative_spread', 0)}",
+            f"- Zero tick-volume rows: {counts.get('zero_tick_volume', 0)}",
+            f"- Required New York weekdays: {counts.get('required_weekdays', 0)}",
+            f"- Complete 08:20–13:30 sessions: {counts.get('complete_sessions', 0)}",
+            f"- Incomplete required sessions: {counts.get('incomplete_sessions', 0)}",
+            "- Duplicate timestamps in required windows: "
+            f"{counts.get('required_window_duplicates', 0)}",
+            f"- Incomplete dates: {dates}",
+            "",
+        )
+    )
 
 
 def main() -> None:
@@ -136,14 +156,18 @@ def main() -> None:
     args = parser.parse_args()
     result_evaluation = inspect(args.evaluation, ZoneInfo("UTC"))
     result_confirmation = inspect(args.confirmation, ZoneInfo("UTC"))
-    report = "\n".join((
-        "# Exness XAUUSDm M1 Structural Quality Check — Candidate 002",
-        "",
-        "This check validates only frozen-file structure and required-session continuity. It does not calculate a signal, simulate execution, or run a replay.",
-        "",
-        render("Evaluation dataset", result_evaluation),
-        render("Confirmation dataset", result_confirmation),
-    ))
+    report = "\n".join(
+        (
+            "# Exness XAUUSDm M1 Structural Quality Check — Candidate 002",
+            "",
+            "This check validates only frozen-file structure and required-session "
+            "continuity. It does not calculate a signal, simulate execution, or "
+            "run a replay.",
+            "",
+            render("Evaluation dataset", result_evaluation),
+            render("Confirmation dataset", result_confirmation),
+        )
+    )
     args.report.write_text(report, encoding="utf-8")
 
 

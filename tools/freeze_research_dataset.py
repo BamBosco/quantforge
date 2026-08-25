@@ -9,12 +9,12 @@ record those facts from the export operation and mark quality as unassessed.
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
-from hashlib import sha256
 import json
 import os
-from pathlib import Path
 import tempfile
+from datetime import datetime
+from hashlib import sha256
+from pathlib import Path
 
 
 def _utc(value: str) -> datetime:
@@ -43,7 +43,9 @@ def _viewed_ranges(path: Path, *, venue: str) -> tuple[tuple[datetime, datetime]
     try:
         records = registry["viewed_datasets"]
     except KeyError as error:
-        raise ValueError("viewed-data registry has no viewed_datasets records") from error
+        raise ValueError(
+            "viewed-data registry has no viewed_datasets records"
+        ) from error
     ranges: list[tuple[datetime, datetime]] = []
     for record in records:
         if str(record["venue"]) != venue:
@@ -59,7 +61,10 @@ def _viewed_ranges(path: Path, *, venue: str) -> tuple[tuple[datetime, datetime]
 def _overlaps(
     start: datetime, end: datetime, ranges: tuple[tuple[datetime, datetime], ...]
 ) -> bool:
-    return any(start < existing_end and existing_start < end for existing_start, existing_end in ranges)
+    return any(
+        start < existing_end and existing_start < end
+        for existing_start, existing_end in ranges
+    )
 
 
 def _frozen_ranges(root: Path) -> tuple[tuple[datetime, datetime], ...]:
@@ -111,9 +116,13 @@ def freeze(args: argparse.Namespace) -> None:
     if not raw_file.is_file():
         raise ValueError("raw export must be a regular file")
     if raw_file.parent != role_directory.resolve():
-        raise ValueError("raw export must be directly inside its restricted role directory")
+        raise ValueError(
+            "raw export must be directly inside its restricted role directory"
+        )
     if manifest.parent != role_directory.resolve():
-        raise ValueError("manifest must be directly inside the same restricted role directory")
+        raise ValueError(
+            "manifest must be directly inside the same restricted role directory"
+        )
     if manifest.exists():
         raise ValueError("refusing to overwrite an existing manifest")
     if args.coverage_start_utc >= args.coverage_end_utc:
@@ -130,11 +139,13 @@ def freeze(args: argparse.Namespace) -> None:
     elif _overlaps(
         args.coverage_start_utc, args.coverage_end_utc, _frozen_ranges(root)
     ):
-        raise ValueError("declared coverage overlaps an already frozen research dataset")
+        raise ValueError(
+            "declared coverage overlaps an already frozen research dataset"
+        )
 
     text = "\n".join(
         (
-            "schema_version = \"research_dataset_manifest.v1\"",
+            'schema_version = "research_dataset_manifest.v1"',
             "",
             "[identity]",
             f"dataset_id = {_quoted(args.dataset_id)}",
@@ -155,19 +166,21 @@ def freeze(args: argparse.Namespace) -> None:
             f"end_utc = {_quoted(args.coverage_end_utc.isoformat())}",
             "",
             "[quality]",
-            "assessment_status = \"unassessed\"",
-            "notes = \"Raw export was not parsed before manifest freeze.\"",
+            'assessment_status = "unassessed"',
+            'notes = "Raw export was not parsed before manifest freeze."',
             "excluded_session_days = []",
             "",
             "[access_control]",
-            "classification = \"unseen_research_data\"",
-            "freeze_method = \"owner-read-only raw export and manifest; role directory mode 0700\"",
+            'classification = "unseen_research_data"',
+            'freeze_method = "owner-read-only raw export and manifest; "'
+            '"role directory mode 0700"',
             *(
                 (
                     "",
                     "[supersession]",
                     f"supersedes_manifest = {_quoted(args.supersedes_manifest.name)}",
-                    "reason = \"Corrected source timezone provenance without altering raw bytes.\"",
+                    'reason = "Corrected source timezone provenance without "'
+                    '"altering raw bytes."',
                 )
                 if args.supersedes_manifest is not None
                 else ()

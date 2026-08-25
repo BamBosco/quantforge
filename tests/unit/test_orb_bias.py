@@ -9,7 +9,6 @@ from quantforge.backtest.orb_bias import (
     determine_entry_eligibility,
 )
 
-
 DAY = date(2026, 8, 14)
 SETTINGS = DirectionalBiasSettings(
     mode=DirectionalBiasMode.OVERNIGHT_OPEN_TO_PRE_RANGE_CLOSE,

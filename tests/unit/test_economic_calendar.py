@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -6,7 +6,7 @@ from quantforge.market_data.economic_calendar import CalendarEvent, CalendarSnap
 
 
 def utc(hour: int) -> datetime:
-    return datetime(2026, 8, 14, hour, tzinfo=timezone.utc)
+    return datetime(2026, 8, 14, hour, tzinfo=UTC)
 
 
 def test_calendar_event_rejects_non_utc_timestamp() -> None:

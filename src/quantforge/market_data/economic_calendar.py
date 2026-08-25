@@ -1,7 +1,7 @@
 """Validated, vendor-neutral scheduled economic-calendar observations."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
 
 
@@ -9,7 +9,7 @@ def _require_utc(value: datetime, field_name: str) -> None:
     """Reject naive and non-UTC timestamps at the market-data boundary."""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{field_name} must be UTC")
-    if value.utcoffset() != timezone.utc.utcoffset(value):
+    if value.utcoffset() != UTC.utcoffset(value):
         raise ValueError(f"{field_name} must be UTC")
 
 

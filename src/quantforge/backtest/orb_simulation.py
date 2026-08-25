@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import StrEnum
 
-from quantforge.backtest.orb_bias import DirectionalBiasSettings, EntryEligibility
 from quantforge.backtest.models import MinuteBar, OpeningRange
 from quantforge.backtest.orb import (
     NEW_YORK,
@@ -18,6 +17,7 @@ from quantforge.backtest.orb import (
     protective_stop,
     to_new_york,
 )
+from quantforge.backtest.orb_bias import DirectionalBiasSettings, EntryEligibility
 from quantforge.risk.validation import validate_protective_stop
 
 

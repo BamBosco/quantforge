@@ -1,7 +1,7 @@
 """Pure pre-trade limits and position sizing owned solely by the Risk Engine."""
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 
 from quantforge.config.settings import RiskSettings
 from quantforge.risk.validation import validate_protective_stop

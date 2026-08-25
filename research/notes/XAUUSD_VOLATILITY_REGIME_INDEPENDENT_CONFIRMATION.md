@@ -11,8 +11,8 @@ It is not an authority to change the Risk Engine or trade.
 
 The confirmation data must meet every condition below:
 
-- Be a new Headway Demo `XAUUSD` M1 export, or an independently sourced
-  dataset whose provenance and price basis are documented.
+- Be a new Dukascopy `XAUUSD` M1 export with documented provenance and price
+  basis.
 - Start strictly after the end of the initial dataset:
   `2026-08-14T17:53:00+00:00`.
 - Have its own immutable manifest, SHA-256 checksum, source timezone, and

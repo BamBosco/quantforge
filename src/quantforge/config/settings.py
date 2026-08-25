@@ -44,6 +44,7 @@ class ForexMT5DemoConfigurationError(ValueError):
 class XAUUSDReadOnlyBrokerProfile:
     """Observed XAUUSD broker facts, deliberately excluding strategy and risk policy."""
 
+    broker_venue: str
     internal_symbol: str
     broker_symbol: str
     timeframe: str
@@ -220,6 +221,7 @@ def load_xauusd_read_only_broker_profile(path: Path) -> XAUUSDReadOnlyBrokerProf
     """Load an observed-only XAUUSD contract with no inherited risk defaults."""
     with path.open("rb") as file:
         raw = tomllib.load(file)
+    broker = _table(raw, "broker")
     instrument = _table(raw, "instrument")
     account = _table(raw, "account")
     execution = _table(raw, "execution")
@@ -246,6 +248,7 @@ def load_xauusd_read_only_broker_profile(path: Path) -> XAUUSDReadOnlyBrokerProf
             "XAUUSD broker profile cannot inherit risk or session policy"
         )
     profile = XAUUSDReadOnlyBrokerProfile(
+        broker_venue=_string(broker, "venue"),
         internal_symbol=_string(instrument, "internal_symbol"),
         broker_symbol=_string(instrument, "broker_symbol"),
         timeframe=_string(instrument, "timeframe"),
@@ -256,7 +259,8 @@ def load_xauusd_read_only_broker_profile(path: Path) -> XAUUSDReadOnlyBrokerProf
         unresolved_requirements=tuple(unresolved),
     )
     if (
-        profile.internal_symbol != "XAUUSD"
+        profile.broker_venue != "Dukascopy"
+        or profile.internal_symbol != "XAUUSD"
         or profile.broker_symbol != "XAUUSD"
         or profile.timeframe != "M1"
         or profile.account_currency != "USD"

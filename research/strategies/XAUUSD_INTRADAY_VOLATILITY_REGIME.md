@@ -26,7 +26,7 @@ would not create a buy or sell signal.
 
 | Item | Definition |
 | --- | --- |
-| Instrument | Headway Demo `XAUUSD` |
+| Instrument | Dukascopy `XAUUSD` |
 | Timezone | `America/New_York` |
 | Eligible days | Weekdays with complete valid M1 and recorded spread data |
 | Predictor window | 08:20:00 inclusive through 08:50:00 exclusive |

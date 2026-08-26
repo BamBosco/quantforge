@@ -104,7 +104,12 @@ Still provisional. Historical bars do not establish account equity, leverage, ma
 
 ### Session
 
-Still provisional. Historical Assex CSV timestamps do not contain authoritative timezone metadata. Do not label source-clock hours as New York/London/Asia/rollover without provenance.
+🟡 Partially established. Five fresh EA 1.01 receipts from
+`AssexmarketsGlobal-Trade` measured MT5 server time as UTC+3 on 2026-08-26,
+terminal-local time as UTC+1, and the terminal UTC clock as exact. This proves
+the current server offset, but not the January-August export's winter offset or
+the broker's DST rule. Historical source-clock hours remain provisional until
+a DST-boundary receipt or broker-authoritative confirmation is captured.
 
 ### Execution deviation
 
@@ -158,14 +163,16 @@ Do not modify the raw CSV.
 
 ## 7. AssexMarkets broker evidence still needed
 
-1. Authoritative XAUUSD MT5 server/export timezone and DST behavior.
+1. Winter/DST-boundary evidence tying the historical export clock to the
+   current MT5 server-time provenance.
 2. Authoritative XAUUSD point size/digits/contract specification if conversions beyond raw MT5 spread points are required.
 3. Broker-authoritative XAUUSD trading hours.
 4. Holiday and rollover rules.
 5. Margin and volume rules.
 6. Continued independent `:8766` live receipt collection across normal/stressed/rollover/news conditions.
 7. Independent execution-quality evidence if deviation policy is ever to be promoted: request time, quote, fill, latency, slippage/adverse movement, rejection/retcode, reconciliation.
-8. Proper UTC-normalized evidence freeze once source timezone provenance is authoritative.
+8. Proper UTC-normalized evidence freeze once the DST/export relationship is
+   authoritative.
 
 ## 8. Existing AssexMarkets observed contract facts
 
@@ -180,6 +187,14 @@ From live read-only receipts already reported:
 - filling modes: FOK/IOC/BOC
 
 Treat these as broker-observed facts tied to the relevant receipts, not universal assumptions.
+
+### Current live receipt coverage
+
+The dedicated AssexMarkets observation database currently contains 300 accepted
+receipts spanning 2026-08-26T13:30:08Z through 2026-08-26T20:38:34Z. Twenty
+receipts include the EA 1.01 `time_provenance` object; all measured server
+UTC+3, terminal-local UTC+1, and terminal UTC exact. This is ongoing
+observation coverage, not execution-quality evidence.
 
 ## 9. AssexMarkets external documentation note
 

@@ -23,8 +23,10 @@ broker identity used for later separation and audit.
 terminal-local, and UTC clocks in each receipt's `time_provenance` object. It
 does not change the bridge endpoint, authentication, or read-only boundary.
 After compiling and reattaching that EA version, collect a fresh accepted
-receipt to establish the current server-to-UTC offset. Repeat around a DST
-boundary before asserting a historical DST convention.
+receipt to establish the current server-to-UTC offset. Five accepted receipts
+collected on 2026-08-26 measured the server at UTC+3, terminal-local time at
+UTC+1, and the terminal UTC clock exactly. Repeat around a DST boundary before
+asserting the historical export's DST convention.
 
 ## Required collection coverage
 

@@ -49,3 +49,18 @@ separate immutable destination for the second broker. A policy may be promoted
 only after review ties its value to this broker identity, source receipts, and
 the required spread, session, risk, or execution-quality evidence. Otherwise
 it remains provisional with an explicit reason.
+
+## Inspecting fresh time provenance
+
+After compiling and attaching the EA v1.01 or higher, use the repository helper
+below to summarize the raw `time_provenance` fields from any fresh SQLite or
+JSONL evidence set:
+
+```zsh
+PYTHONPATH=src python3 tools/inspect_mt5_time_provenance.py \
+  data/candidate_006_second_broker/mt5_observations.sqlite3
+```
+
+This reports the raw terminal server/local/UTC clocks and the delta relative to
+`observed_at_utc` so the broker offset and any DST discontinuity can be reviewed
+without guessing.

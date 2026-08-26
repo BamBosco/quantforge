@@ -239,7 +239,7 @@ def test_bridge_preserves_terminal_clock_provenance(tmp_path: Path) -> None:
         observation.payload["time_provenance"] = {
             "terminal_server_time": "2026.08.21 16:00:00",
             "terminal_local_time": "2026.08.21 14:00:00",
-            "terminal_utc_time": "2026.08.21 13:00:00",
+            "terminal_utc_time": "2026.08.21 13:00:00Z",
         }
         assert _post_snapshot(server.server_address[1], observation.payload) == 202
         latest = HTTPConnection("127.0.0.1", server.server_address[1])

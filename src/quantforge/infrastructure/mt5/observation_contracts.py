@@ -430,14 +430,13 @@ class ObservationEnvelope:
         time_provenance = data.get("time_provenance")
         if time_provenance is not None:
             clocks = _object(time_provenance, "time_provenance")
-            for field in (
-                "terminal_server_time",
-                "terminal_local_time",
-                "terminal_utc_time",
-            ):
+            for field in ("terminal_server_time", "terminal_local_time"):
                 clocks[field] = _terminal_clock(
                     clocks.get(field), f"time_provenance.{field}"
                 )
+            clocks["terminal_utc_time"] = _utc_timestamp(
+                clocks.get("terminal_utc_time"), "time_provenance.terminal_utc_time"
+            )
             result["time_provenance"] = clocks
 
         source = _object(data.get("source"), "source")

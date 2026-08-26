@@ -1,0 +1,43 @@
+# Immutable identity and provenance for the native MT5 Bars export.  The CSV is
+# copied byte-for-byte from the terminal's Wine Documents directory; this file
+# deliberately does not infer a UTC conversion which the export cannot prove.
+[identity]
+dataset_id = "assexmarkets_global_demo_xauusd_m1_20260102_20260814"
+instrument = "XAUUSD"
+filename = "XAUUSD_M1_202601020100_202608141159.csv"
+sha256 = "45a24b5f53c5518f73a310800705ef0ce26036a8a315ee97c80073fb4bf85f33"
+file_size_bytes = 13357126
+raw_file_preserved_unmodified = true
+
+[provenance]
+source = "MetaTrader 5 native Bars export"
+broker_entity = "Assexmarkets Global Limited"
+server = "AssexmarketsGlobal-Trade"
+account_environment = "Demo Account — Hedge"
+symbol = "XAUUSD"
+timeframe = "M1"
+exported_at_local = "2026-08-26T14:46:00+01:00"
+requested_terminal_start = "2026.01.02 01:00"
+requested_terminal_end = "2026.08.14 11:59"
+# MT5 CSV has wall-clock timestamps only.  The historical server timezone and
+# DST convention must be demonstrated by overlapping terminal/UTC evidence
+# before this export may be normalized to UTC.
+terminal_source_timezone = "unresolved_broker_server_time"
+price_basis = "not encoded in MT5 Bars CSV; not asserted"
+
+[structural_quality]
+row_count = 217842
+malformed_rows = 0
+duplicate_timestamps = 0
+invalid_ohlc_rows = 0
+negative_tick_volume_rows = 0
+negative_spread_rows = 0
+terminal_wall_clock_start = "2026-01-02T01:00:00"
+terminal_wall_clock_end = "2026-08-14T11:59:00"
+
+[evidence_boundary]
+# Bars support historical quote/spread and session research only.  They cannot
+# prove fills, latency, rejection/error behaviour, execution deviation, or
+# live broker execution quality.
+supports = ["spread_distribution", "historical_session_behavior", "bar_replay"]
+does_not_support = ["actual_fills", "latency", "rejections", "execution_deviation"]

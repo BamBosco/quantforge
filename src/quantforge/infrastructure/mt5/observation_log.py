@@ -224,6 +224,18 @@ class SQLiteMarketObservationLog:
                 )
                 """
             )
+            self._connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS candidate_006_non_live_readiness (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    observation_id TEXT NOT NULL UNIQUE,
+                    readiness_status TEXT NOT NULL,
+                    checks_json TEXT NOT NULL,
+                    artifact_json TEXT NOT NULL,
+                    created_at_utc TEXT NOT NULL
+                )
+                """
+            )
 
     def append(self, snapshot: Any) -> str:
         """Persist a bridge v1 snapshot as one normalized v2 audit event."""
@@ -807,6 +819,62 @@ class SQLiteMarketObservationLog:
                 ),
             )
         return cursor.rowcount == 1
+
+    def append_candidate_006_non_live_readiness(
+        self,
+        *,
+        observation_id: str,
+        readiness_status: str,
+        checks: tuple[str, ...],
+        artifact: dict[str, Any],
+    ) -> bool:
+        """Persist Candidate 006 readiness for paper/simulation only.
+
+        This is deliberately separate from the legacy one-time USDJPY demo
+        readiness record: it records no authorization token and cannot be
+        consumed by a broker transport.
+        """
+        if readiness_status not in {"ready_non_live", "not_ready"}:
+            raise ValueError("invalid Candidate 006 non-live readiness status")
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                """
+                INSERT OR IGNORE INTO candidate_006_non_live_readiness (
+                    observation_id, readiness_status, checks_json, artifact_json,
+                    created_at_utc
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    observation_id,
+                    readiness_status,
+                    json.dumps(list(checks), separators=(",", ":")),
+                    canonical_json(artifact),
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+        return cursor.rowcount == 1
+
+    def candidate_006_non_live_readiness(
+        self, observation_id: str
+    ) -> dict[str, Any] | None:
+        """Return the immutable Candidate 006 paper/simulation readiness artifact."""
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT * FROM candidate_006_non_live_readiness
+                WHERE observation_id = ?
+                """,
+                (observation_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "observation_id": str(row["observation_id"]),
+            "status": str(row["readiness_status"]),
+            "checks": json.loads(str(row["checks_json"])),
+            "artifact": json.loads(str(row["artifact_json"])),
+            "created_at_utc": str(row["created_at_utc"]),
+        }
 
     def append_demo_position_state_observation(
         self,

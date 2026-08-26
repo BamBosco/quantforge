@@ -8,7 +8,7 @@ Date: 2026-08-26
 - Instrument/timeframe: XAUUSD / M1
 - Raw filename: `XAUUSD_M1_202601020100_202608141159.csv`
 - Raw size: 13,357,126 bytes
-- SHA-256: `REDACTED_IN_REPOSITORY_REPORT; SEE PROVENANCE RECORD`
+- SHA-256: `45a24b5f53c5518f73a310800705ef0ce26036a8a315ee97c80073fb4bf85f33`
 - Rows: 217,842
 - Columns: `<DATE>`, `<TIME>`, `<OPEN>`, `<HIGH>`, `<LOW>`, `<CLOSE>`, `<TICKVOL>`, `<VOL>`, `<SPREAD>`
 - Observed first source-clock timestamp: `2026-01-02 01:00:00`
@@ -131,7 +131,7 @@ Historical OHLC/spread data contains no order requests, fills, latency, rejects,
 
 ## Freeze status
 
-The raw file has been copied into a separate owner-read-only local evidence package and SHA-256 recorded.
+The raw file has been copied into a separate owner-read-only local evidence package and SHA-256 recorded at `/mnt/data/candidate_006_assexmarkets_evidence/historical_raw/`.
 
 The normal QuantForge freeze utility requires authoritative UTC coverage. Because the Assex historical source timezone is not established, a false UTC-normalized manifest was deliberately not created.
 

@@ -67,3 +67,15 @@ def test_rejects_stale_or_excessive_spread_receipt() -> None:
     assert readiness.status == "not_ready"
     assert "receipt is not fresh" in readiness.checks
     assert "spread exceeds provisional research cap" in readiness.checks
+
+
+def test_accepts_a_utc_receipt_despite_a_non_utc_host_display_timezone() -> None:
+    """Freshness compares UTC instants, never a local wall-clock rendering."""
+    observed_at = datetime(2026, 8, 26, 10, 16, 2, tzinfo=UTC)
+    readiness = assess_candidate_006_non_live_readiness(
+        observation=_observation(observed_at),
+        settings=_settings(),
+        evaluated_at=datetime(2026, 8, 26, 10, 16, 26, tzinfo=UTC),
+    )
+    assert readiness.status == "ready_non_live"
+    assert "fresh observation" in readiness.checks

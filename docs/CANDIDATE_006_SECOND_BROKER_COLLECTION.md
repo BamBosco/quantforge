@@ -9,6 +9,7 @@ a distinct observation log and audit database from the existing Dukascopy run.
 cd ~/Documents/ChatGPT/Project
 export QUANTFORGE_MT5_BRIDGE_TOKEN='store outside the repository'
 PYTHONPATH=src python3 -m quantforge.infrastructure.mt5.read_only_bridge \
+  --port 8766 \
   --observation-log data/candidate_006_second_broker/mt5_observations.sqlite3
 ```
 
@@ -17,6 +18,13 @@ the same loopback URL and the token held only in the terminal and EA input.
 Keep `live_trading_enabled`, `order_submission_enabled`, and every send flag
 false. Capture the broker server name in the receipt; it is the immutable
 broker identity used for later separation and audit.
+
+`QuantForgeReadOnlyBridge` version 1.01 additionally records MT5 server,
+terminal-local, and UTC clocks in each receipt's `time_provenance` object. It
+does not change the bridge endpoint, authentication, or read-only boundary.
+After compiling and reattaching that EA version, collect a fresh accepted
+receipt to establish the current server-to-UTC offset. Repeat around a DST
+boundary before asserting a historical DST convention.
 
 ## Required collection coverage
 

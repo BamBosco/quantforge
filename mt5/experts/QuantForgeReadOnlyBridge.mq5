@@ -4,7 +4,7 @@
 //| any other trading operation. It only POSTs local observations.  |
 //+------------------------------------------------------------------+
 #property copyright "QuantForge"
-#property version   "1.00"
+#property version   "1.01"
 #property strict
 
 input string BridgeUrl = "http://127.0.0.1:8765/v1/mt5/snapshots";
@@ -68,6 +68,11 @@ void SendSnapshot()
       Print("QuantForge M1 history unavailable. CopyRates copied=", copied, " error=", GetLastError());
      }
    string timestamp = UtcTimestamp(TimeGMT());
+   // Preserve all three terminal clocks. Server time is intentionally not
+   // labelled UTC: evidence derives any offset explicitly.
+   string server_clock = TerminalClock(TimeCurrent());
+   string local_clock = TerminalClock(TimeLocal());
+   string utc_clock = UtcTimestamp(TimeGMT());
    double point = SymbolInfoDouble(SymbolToReport, SYMBOL_POINT);
    string filling_modes = SupportedFillingModesJson();
    string trade_mode = IntegerPropertyJson(SYMBOL_TRADE_MODE);
@@ -83,13 +88,14 @@ void SendSnapshot()
    string tick_value_profit = DoublePropertyJson(SYMBOL_TRADE_TICK_VALUE_PROFIT);
    string body = StringFormat(
       "{\"schema_version\":2,\"observed_at_utc\":\"%s\","
+      "\"time_provenance\":{\"terminal_server_time\":\"%s\",\"terminal_local_time\":\"%s\",\"terminal_utc_time\":\"%s\"},"
       "\"source\":{\"adapter\":\"mt5_read_only_ea\",\"broker_profile_id\":\"mt5_runtime_observed\"},"
       "\"account\":{\"account_id\":\"%I64d\",\"server\":\"%s\",\"currency\":\"%s\",\"balance\":%.8f,\"equity\":%.8f,\"margin\":%.8f,\"free_margin\":%.8f},"
       "\"instrument\":{\"canonical_instrument\":\"%s\",\"broker_symbol\":\"%s\",\"specification\":{\"point\":%.10f,\"digits\":%d,\"volume_min\":%.8f,\"volume_max\":%.8f,\"volume_step\":%.8f,\"contract_size\":%.8f,\"supported_filling_modes\":%s,\"trade_mode\":%s,\"order_mode\":%s,\"stop_level\":%s,\"freeze_level\":%s,\"trade_calculation_mode\":%s,\"profit_currency\":%s,\"margin_currency\":%s,\"tick_size\":%s,\"tick_value\":%s,\"tick_value_loss\":%s,\"tick_value_profit\":%s}},"
       "\"quote\":{\"bid\":%.8f,\"ask\":%.8f,\"tick_time_utc\":\"%s\",\"spread_points\":%.8f},"
       "\"candles\":{\"timeframe\":\"M1\",\"forming\":null,\"completed\":%s},\"positions\":%s,\"active_orders\":%s,"
       "\"deals\":{\"history_from_utc\":\"%s\",\"history_to_utc\":\"%s\",\"items\":%s},\"terminal\":{\"connected\":%s,\"trade_allowed\":%s},\"data_quality\":{\"adapter_status\":\"ok\",\"missing_data\":%s}}",
-      timestamp, AccountInfoInteger(ACCOUNT_LOGIN), JsonEscape(AccountInfoString(ACCOUNT_SERVER)), JsonEscape(AccountInfoString(ACCOUNT_CURRENCY)),
+      timestamp, server_clock, local_clock, utc_clock, AccountInfoInteger(ACCOUNT_LOGIN), JsonEscape(AccountInfoString(ACCOUNT_SERVER)), JsonEscape(AccountInfoString(ACCOUNT_CURRENCY)),
       AccountInfoDouble(ACCOUNT_BALANCE), AccountInfoDouble(ACCOUNT_EQUITY), AccountInfoDouble(ACCOUNT_MARGIN), AccountInfoDouble(ACCOUNT_MARGIN_FREE),
       JsonEscape(SymbolToReport), JsonEscape(SymbolToReport), point, (int)SymbolInfoInteger(SymbolToReport, SYMBOL_DIGITS),
       SymbolInfoDouble(SymbolToReport, SYMBOL_VOLUME_MIN), SymbolInfoDouble(SymbolToReport, SYMBOL_VOLUME_MAX), SymbolInfoDouble(SymbolToReport, SYMBOL_VOLUME_STEP), SymbolInfoDouble(SymbolToReport, SYMBOL_TRADE_CONTRACT_SIZE), filling_modes, trade_mode, order_mode, stop_level, freeze_level, calculation_mode, profit_currency, margin_currency, tick_size, tick_value, tick_value_loss, tick_value_profit,
@@ -120,6 +126,11 @@ void SendSnapshot()
 string UtcTimestamp(datetime value)
   {
    return(TimeToString(value, TIME_DATE|TIME_SECONDS) + "Z");
+  }
+
+string TerminalClock(datetime value)
+  {
+   return(TimeToString(value, TIME_DATE|TIME_SECONDS));
   }
 
 string SupportedFillingModesJson()

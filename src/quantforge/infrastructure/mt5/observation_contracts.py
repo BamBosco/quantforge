@@ -52,6 +52,18 @@ def _string(value: Any, path: str, *, allow_empty: bool = False) -> str:
     return value
 
 
+def _terminal_clock(value: Any, path: str) -> str:
+    """Validate a terminal clock without assigning it a timezone or offset."""
+    text = _string(value, path)
+    try:
+        datetime.strptime(text, "%Y.%m.%d %H:%M:%S")
+    except ValueError as error:
+        raise ObservationValidationError(
+            f"{path} must be an MT5 terminal timestamp"
+        ) from error
+    return text
+
+
 def _integer(value: Any, path: str, *, minimum: int | None = None) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ObservationValidationError(f"{path} must be an integer")
@@ -414,6 +426,19 @@ class ObservationEnvelope:
         result["observed_at_utc"] = _utc_timestamp(
             data.get("observed_at_utc"), "observed_at_utc"
         )
+
+        time_provenance = data.get("time_provenance")
+        if time_provenance is not None:
+            clocks = _object(time_provenance, "time_provenance")
+            for field in (
+                "terminal_server_time",
+                "terminal_local_time",
+                "terminal_utc_time",
+            ):
+                clocks[field] = _terminal_clock(
+                    clocks.get(field), f"time_provenance.{field}"
+                )
+            result["time_provenance"] = clocks
 
         source = _object(data.get("source"), "source")
         source["adapter"] = _string(source.get("adapter"), "source.adapter")

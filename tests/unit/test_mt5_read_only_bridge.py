@@ -225,6 +225,37 @@ def test_bridge_accepts_complete_v2_read_only_observation(tmp_path: Path) -> Non
         server.close()
 
 
+def test_bridge_preserves_terminal_clock_provenance(tmp_path: Path) -> None:
+    database = tmp_path / "observations.sqlite3"
+    server = create_server("127.0.0.1", 0, "test-token", database)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        observation = demo_observation(
+            observed_at=datetime(2026, 8, 21, 13, tzinfo=UTC),
+            bid=Decimal("99.9"),
+            ask=Decimal("100"),
+        )
+        observation.payload["time_provenance"] = {
+            "terminal_server_time": "2026.08.21 16:00:00",
+            "terminal_local_time": "2026.08.21 14:00:00",
+            "terminal_utc_time": "2026.08.21 13:00:00",
+        }
+        assert _post_snapshot(server.server_address[1], observation.payload) == 202
+        latest = HTTPConnection("127.0.0.1", server.server_address[1])
+        latest.request(
+            "GET", "/v1/mt5/latest", headers={"Authorization": "Bearer test-token"}
+        )
+        payload = json.loads(latest.getresponse().read())
+        assert (
+            payload["time_provenance"]["terminal_server_time"]
+            == "2026.08.21 16:00:00"
+        )
+    finally:
+        server.shutdown()
+        server.close()
+
+
 def test_bridge_opt_in_persists_only_fresh_complete_candidate_006_receipts(
     tmp_path: Path,
 ) -> None:
@@ -283,4 +314,7 @@ def test_read_only_ea_reports_native_xauusd_calculation_metadata() -> None:
     ):
         assert property_name in source
 
+    assert "time_provenance" in source
+    assert "TimeCurrent()" in source
+    assert "TimeGMT()" in source
     assert "OrderSend(" not in source

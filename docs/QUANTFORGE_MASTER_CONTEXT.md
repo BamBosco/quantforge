@@ -302,17 +302,19 @@ The AssexMarkets historical evidence work added:
 - `research/results/CANDIDATE_006_ASSEXMARKETS_XAUUSD_M1_HISTORICAL_EVIDENCE_2026-08-26.md`
 - `research/results/CANDIDATE_006_ASSEXMARKETS_XAUUSD_M1_PROVENANCE_2026-08-26.json`
 
-The evidence branch was reported as 14 commits ahead of `main` and 0 behind, with head `fc1eacff4284a2042768cf32f9202a68f243883c`. A PR #3 was opened to merge this evidence work into `main`.
+The active evidence branch is `codex/xauusd-evidence-collection`, pushed through
+commit `f66739e`. Check the remote before making merge or PR claims.
 
-A fresh full pytest/Ruff/strict-Mypy run after this exact evidence-branch state was not executed in the ChatGPT runtime because the actual Mac checkout is not mounted here. Do not claim fresh green verification until the Mac checkout or CI confirms it.
+Fresh verification at `f66739e`: 246 pytest tests passed, Ruff passed, and
+strict Mypy passed for production `src`.
 
 ## 13. Immediate next work
 
 Highest-value sequence:
 
-1. Keep both read-only observation paths healthy, especially AssexMarkets `:8766`.
-   Keep the isolated AssexMarkets EURUSD `:8767` stream healthy once attached;
-   use it to compare published forex server-time claims with current MT5 clocks.
+1. Keep both read-only observation paths healthy, especially AssexMarkets `:8766`
+   and isolated EURUSD `:8767`; use EURUSD to compare published forex
+   server-time claims with current MT5 clocks.
 2. Establish AssexMarkets timezone/DST and XAUUSD trading-hours provenance.
 3. Verify contract/margin/volume documentation against live observed facts.
 4. Freeze the historical dataset through the normal UTC workflow once timezone is authoritative.

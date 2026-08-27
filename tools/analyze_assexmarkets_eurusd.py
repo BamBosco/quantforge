@@ -12,6 +12,26 @@ from pathlib import Path
 from typing import Any
 
 
+def detect_boundary_gaps(
+    event_times: list[datetime], threshold_seconds: float = 90
+) -> list[dict[str, Any]]:
+    """Return receipt gaps large enough to warrant boundary review."""
+    candidates: list[dict[str, Any]] = []
+    for earlier, later in zip(event_times, event_times[1:], strict=False):
+        gap_seconds = (later - earlier).total_seconds()
+        if gap_seconds > threshold_seconds:
+            candidates.append(
+                {
+                    "before_utc": earlier.isoformat(),
+                    "after_utc": later.isoformat(),
+                    "gap_seconds": gap_seconds,
+                    "before_weekday": earlier.strftime("%A"),
+                    "after_weekday": later.strftime("%A"),
+                }
+            )
+    return candidates
+
+
 def _parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
@@ -52,11 +72,7 @@ def analyze(database: Path, instrument: str = "EURUSD") -> dict[str, Any]:
             )
             local_offsets[offset] += 1
 
-    gaps = [
-        (later - earlier).total_seconds()
-        for earlier, later in zip(event_times, event_times[1:], strict=False)
-        if (later - earlier).total_seconds() > 90
-    ]
+    boundary_gaps = detect_boundary_gaps(event_times)
     return {
         "database": str(database),
         "instrument": instrument,
@@ -72,8 +88,11 @@ def analyze(database: Path, instrument: str = "EURUSD") -> dict[str, Any]:
             "minimum": min(spreads) if spreads else None,
             "maximum": max(spreads) if spreads else None,
         },
-        "observation_gaps_over_90_seconds": len(gaps),
-        "largest_observation_gap_seconds": max(gaps, default=0),
+        "observation_gaps_over_90_seconds": len(boundary_gaps),
+        "largest_observation_gap_seconds": max(
+            (float(gap["gap_seconds"]) for gap in boundary_gaps), default=0
+        ),
+        "boundary_gap_candidates": boundary_gaps,
         "schedule_coverage": {
             "weekly_open_close": "not_observed",
             "daily_break": "not_observed",

@@ -17,7 +17,7 @@ the accepted receipt event time for the fresh receipts considered here.
 | Stream | Database | Accepted receipts at analysis | Provenance receipts | Broker server |
 | --- | --- | ---: | ---: | --- |
 | XAUUSD | `data/candidate_006_second_broker/mt5_observations.sqlite3` | 695 | 416 | `AssexmarketsGlobal-Trade` |
-| EURUSD | `data/assexmarkets_eurusd/mt5_observations.sqlite3` | 29 | 29 | `AssexmarketsGlobal-Trade` |
+| EURUSD | `data/assexmarkets_eurusd/mt5_observations.sqlite3` | 34 | 34 | `AssexmarketsGlobal-Trade` |
 
 The two databases remain separate. No observation was routed through a broker
 order endpoint, and no position or fill is inferred from these quotes.
@@ -26,10 +26,10 @@ order endpoint, and no position or fill is inferred from these quotes.
 
 | Instrument | Exact +180-minute server-minus-UTC result | Within one minute of +180 | Result |
 | --- | ---: | ---: | --- |
-| EURUSD | 29/29 | 29/29 | Uniform current MT5 UTC+3 |
+| EURUSD | 34/34 | 34/34 | Uniform current MT5 UTC+3 |
 | XAUUSD | 187/416 | 388/416 | Fresh/current observations support MT5 UTC+3 |
 
-All 29 EURUSD receipts have a server-minus-UTC offset of exactly 180 minutes;
+All 34 EURUSD receipts have a server-minus-UTC offset of exactly 180 minutes;
 their terminal-local-minus-UTC offset is exactly 60 minutes. For XAUUSD, 388
 of 416 receipts are within one minute of +180 minutes, including the current
 healthy run. The remaining 28 receipts occur in an earlier interrupted/stale
@@ -92,8 +92,8 @@ interpreting it. It does not provide the broker's historic timezone/DST policy.
 
 ## Session and policy effect
 
-- **EURUSD weekly/daily behaviour:** twenty-nine Wednesday intraday receipts span
-  about sixteen minutes. They confirm quote availability and M1-bar capture but
+- **EURUSD weekly/daily behaviour:** thirty-four Thursday intraday receipts span
+  about eighteen minutes. They confirm quote availability and M1-bar capture but
   contain no Friday close, Sunday/Monday open, daily break, rollover, or DST
   boundary. No weekly/daily schedule conclusion is available yet.
 - **XAUUSD session policy:** remains provisional. The UTC+3 hypothesis is now

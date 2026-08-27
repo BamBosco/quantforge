@@ -46,6 +46,11 @@ This boundary prevents external frameworks from mixing broker-specific
 provenance, weakening the read-only/production authorization boundary, or
 creating a second source of truth.
 
+An external XAUUSD repository review is recorded in
+`research/results/EXTERNAL_XAUUSD_REPOSITORY_REVIEW_2026-08-27.md`. It found
+reusable research patterns, but no external strategy or claimed performance
+that is suitable for direct deployment or policy promotion.
+
 ### MT5 read-only observation
 
 Two independent local bridge paths are currently used:

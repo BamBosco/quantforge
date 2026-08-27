@@ -78,8 +78,8 @@ Two independent local bridge paths are currently used:
 - Scope: read-only EURUSD M1 broker-infrastructure clock/session evidence only
 - No Candidate 006 audit consumer and no policy transfer to XAUUSD
 - Receiver prepared and health-checked on 2026-08-27. The attached
-  non-submitting EA has produced 148 accepted authenticated EURUSD receipts,
-  all with complete provenance, through 2026-08-27T10:42:42Z. Twenty-three
+  non-submitting EA has produced 159 accepted authenticated EURUSD receipts,
+  all with complete provenance, through 2026-08-27T10:48:12Z. Twenty-three
   preserved XAUUSD receipts in that database are excluded from EURUSD analysis
   and retained as contamination evidence.
   The 23 records span 09:22:53Z–10:41:01Z and have no payload-hash overlap
@@ -92,7 +92,7 @@ Two independent local bridge paths are currently used:
   read-only boundary.
 - The dedicated XAUUSD receiver recovered and reached 700 accepted receipts
   through 2026-08-27T10:31:39Z, adding five fresh authenticated receipts with
-  current UTC+3 provenance. The   parallel-terminal period also placed 23
+  current UTC+3 provenance before the guarded restart. The parallel-terminal period also placed 23
   XAUUSD receipts in the EURUSD database; they remain excluded and do not
   weaken the dedicated XAUUSD evidence isolation.
 

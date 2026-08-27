@@ -9,7 +9,7 @@ can also create a gap.
 
 | Instrument | Clean accepted receipts | Database total | UTC coverage | Server offset |
 | --- | ---: | ---: | --- | --- |
-| EURUSD | 148 | 171 | 09:26:05–10:42:42Z | 148/148 at UTC+3 |
+| EURUSD | 159 | 182 | 09:26:05–10:48:12Z | 159/159 at UTC+3 |
 | XAUUSD | 700 | 700 | 2026-08-26 13:30:08–2026-08-27 10:31:39Z | 391/416 exact UTC+3 provenance |
 
 The EURUSD database contains 23 preserved XAUUSD receipts from the
@@ -41,10 +41,10 @@ receipt cadence is too sparse to distinguish an actual metal session break
 from collector downtime. No weekly boundary is observed in either stream.
 No policy is promoted from these candidates.
 
-The `:8766` and `:8767` receiver processes are running. Both streams have now
-produced fresh accepted receipts after simultaneous attachment: EURUSD reached
-148 clean receipts through 10:42:42Z, and the dedicated XAUUSD database reached
-700 through 10:31:39Z. The EURUSD database also received 23 XAUUSD
+The `:8766` and `:8767` receiver processes are running with expected-symbol
+guards. EURUSD resumed after the guarded restart and reached 159 clean
+receipts through 10:48:12Z. XAUUSD remains at 700 through 10:31:39Z, with no
+post-restart receipt yet. The EURUSD database also received 23 XAUUSD
 receipts during the parallel-terminal period; these remain preserved and
 excluded from EURUSD analysis. This confirms delivery recovery, but not
 continuous boundary coverage.

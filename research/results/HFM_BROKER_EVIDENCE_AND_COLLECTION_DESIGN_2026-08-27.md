@@ -110,3 +110,89 @@ XAUUSD-specific hours, rollover, holidays, margin tiers, or historical export
 timezone. A future MT5 receipt that differs from the published schedule must
 be preserved as a conflict for verification, not silently normalized or used to
 alter Candidate 006.
+
+## Direct HFM MT5 evidence supplied on 2026-08-27
+
+The attached HFM client-portal and MT5 Specification screenshots are direct
+observations of one HFM demo account. They are not a substitute for current
+terms or a machine-readable receipt, and the account identifier is intentionally
+not reproduced here.
+
+### Account and server
+
+- Account type: **Demo Premium**
+- Platform: **MT5**
+- Displayed leverage: **1:1000**
+- Displayed free margin: **100,000 USD**
+- Server: **HFMMarketsGlobal-Demo**
+- Legal entity shown in the portal: **HF Markets (SV) Ltd**
+
+### XAUUSD Specification
+
+- Symbol: `XAUUSD`, Gold vs US Dollar
+- Digits: **2**
+- Contract size: **100**
+- Spread: floating
+- Stop level: **0**
+- Margin currency: **USD**
+- Profit currency: **USD**
+- Calculation: **CFD Leverage**
+- Tick size: **0.01**
+- Tick value: **0.1**
+- Hedged margin: calculate using larger leg
+- Trade access: Full access
+- Execution: Instant
+- Filling: Fill or Kill, Immediate or Cancel
+- Expiration: All; orders: All
+- Volume: **0.01 minimum, 0.01 step, 100 maximum**
+- Swap type: points; long **-12.6**, short **-4.6**
+- Displayed swap multipliers: Monday 1, Tuesday 1, Wednesday 3,
+  Thursday 1, Friday 1
+- Displayed quote/trade sessions: Monday–Friday `00:00–24:00`; Sunday and
+  Saturday were not shown as active sessions.
+
+### EURUSD Specification
+
+- Symbol: `EURUSD`, Euro vs US Dollar
+- Digits: **5**
+- Contract size: **100,000 EUR**
+- Spread: floating
+- Stop level: **0**
+- Margin currency: **EUR**
+- Profit currency: **USD**
+- Calculation: **Forex**
+- Hedged margin: **100,000** (as displayed)
+- Trade access: Full access
+- Execution: Instant
+- Filling: Fill or Kill, Immediate or Cancel
+- Expiration: All; orders: All
+- Volume: **0.01 minimum, 0.01 step, 500 maximum**
+- Swap type: points; long **-0.7**, short **-1**
+- Displayed swap multipliers: Monday 1, Tuesday 1, Wednesday 3,
+  Thursday 1, Friday 1
+- Displayed quote/trade sessions: Monday–Friday `00:00–24:00`; Sunday and
+  Saturday were not shown as active sessions.
+- Displayed floating notional margin-rate tiers: `0–300,000` at 1.0,
+  `300,000–500,000` at 2.0, and `500,000–10,000,000,000` at 3.0 for both
+  market buy and market sell.
+
+### Evidence classification and limitations
+
+These fields are **directly observed from the HFM MT5 terminal UI** for this
+account/server and should be verified with authenticated read-only receipts.
+They materially reduce uncertainty about the demo server, account type,
+symbols, contract sizes, volume bounds, currencies, and displayed margin-rate
+structure. They do not establish:
+
+- the exact XAUUSD daily break, rollover timestamp, Friday close, Sunday open,
+  or holiday/early-close calendar;
+- whether the displayed account leverage applies uniformly across XAUUSD
+  notional tiers;
+- stop-out, liquidation, news, latency, scalping, VPS, copying, or other
+  execution restrictions;
+- HFM's legal permission for the QuantForge Expert Advisor;
+- historical MT5 export timezone/DST behavior.
+
+The apparent `00:00–24:00` weekday sessions should be treated as a broad
+symbol-session display, not proof that quotes and executable trading are
+continuous through every minute or that weekends are open.

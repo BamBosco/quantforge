@@ -105,6 +105,17 @@ Two independent local bridge paths are currently used:
   many aligned with recognizable US holiday dates; these remain holiday/early-
   close candidates rather than a broker calendar.
 
+- HFM evaluation is a separate research path; AssexMarkets evidence and
+  Candidate 006 are unchanged. HFM public sources confirm MT5 for Forex and
+  Metals and publish GMT+2 winter/GMT+3 summer server time, but not exact
+  symbol-level sessions, holidays, margin tiers, or EA permissions. Screenshots
+  supplied on 2026-08-27 directly show an HFMMarketsGlobal-Demo Demo Premium
+  MT5 account (displayed leverage 1:1000), XAUUSD contract size 100 with
+  0.01/0.01/100 volume bounds and USD currencies, and EURUSD contract size
+  100,000 EUR with 0.01/0.01/500 volume bounds and displayed notional margin
+  tiers of 1x/2x/3x. These are account/server-specific MT5 observations pending
+  authenticated read-only receipts, not broker-authoritative policy changes.
+
 AssexMarkets must remain separated from the old 8765 log. After the MT5 account switch, the old 8765 database received AssexMarkets receipts and is considered contaminated for post-switch cross-broker comparison. Do not use it as clean AssexMarkets evidence.
 
 ### Candidate 006

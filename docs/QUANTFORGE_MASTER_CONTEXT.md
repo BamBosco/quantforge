@@ -118,6 +118,14 @@ then returns to the normal 01:00–23:58 span. This is useful DST-adjacent
 research evidence, not authority to normalize timestamps or promote a session
 policy.
 
+Quantitative source-boundary scoring favors fixed UTC+3 (1,173/1,191 daily
+first bars, 98.5%; 240/241 weekly first bars, 99.6%) over fixed UTC+2 (1.4% /
+0.4%), Europe-style UTC+2/+3 (59.4% / 59.3%), and US-style UTC+2/+3 (65.7% /
+65.6%). The 2025 anomaly is temporally between Europe and US DST end dates but
+does not recur in the equivalent 2022–2024 windows. A spring 2025 close-only
+change is also incompatible with a simple seasonal conversion. Keep the UTC
+freeze blocked pending broker confirmation of historical server/export time.
+
 ### Execution deviation
 
 🟡 Partially evidenced. One user-authorized AssexMarkets demo round trip was

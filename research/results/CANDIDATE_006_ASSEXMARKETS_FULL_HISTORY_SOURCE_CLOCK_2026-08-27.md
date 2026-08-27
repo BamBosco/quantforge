@@ -43,28 +43,69 @@ UTC open and 21:00 UTC close, not an AssexMarkets-published XAUUSD schedule.
 That reference is consistent with conventional COMEX gold session timing but
 is not proof that the broker mirrors COMEX.
 
-| Interpretation | Expected usual source open | Weekly exact matches | Structural assessment |
-| --- | --- | ---: | --- |
-| UTC+0 | Sunday 22:00 | 0/241 | Inconsistent |
-| UTC+1 | Sunday 23:00 | 0/241 | Inconsistent |
-| UTC+2 | Monday 00:00 | 1/241 | Inconsistent as a persistent clock |
-| UTC+3 | Monday 01:00 | 235/241 | Best fixed-offset explanation; normal source close maps near 21:00 UTC |
-| UTC+2 winter / UTC+3 summer (or another ordinary DST calendar) | 00:00 and 01:00 across sustained seasonal periods | Not observed | The five-day October 2025 shift reverses after one week, rather than persisting through winter |
+The scores below use the hourly first-bar boundary. The reference open is
+22:00 UTC, so an offset of +3 predicts source-clock 01:00 and +2 predicts
+00:00. This is an explicit structural scoring convention, not a claim that
+AssexMarkets publishes that UTC session boundary.
+
+| Interpretation | Expected usual source open | Daily first-bar fit | Weekly first-bar fit | Structural assessment |
+| --- | --- | ---: | ---: | --- |
+| UTC+0 | Sunday 22:00 | 0/1,191 (0.0%) | 0/241 (0.0%) | Inconsistent |
+| UTC+1 | Sunday 23:00 | 0/1,191 (0.0%) | 0/241 (0.0%) | Inconsistent |
+| UTC+2 | Monday 00:00 | 17/1,191 (1.4%) | 1/241 (0.4%) | Inconsistent as a persistent clock |
+| UTC+3 | Monday 01:00 | 1,173/1,191 (98.5%) | 240/241 (99.6%) | Best fixed-offset explanation |
+| Europe-style UTC+2 winter / UTC+3 summer | 00:00 in winter, 01:00 in summer | 708/1,191 (59.4%) | 143/241 (59.3%) | Rejected as a complete calendar model |
+| US-style UTC+2 winter / UTC+3 summer | 00:00 in winter, 01:00 in summer | 782/1,191 (65.7%) | 158/241 (65.6%) | Rejected as a complete calendar model |
 
 The 194+ live EA time-provenance receipts independently establish current MT5
 server UTC+3. Taken together, the full history and live receipts support this
 limited inference: **the historical source clock is predominantly consistent
 with UTC+3**. It remains an inference, not broker authority.
 
+## DST-anomaly investigation
+
+The October 2025 anomaly is exact and internally consistent for both session
+boundaries:
+
+| Source-date range | First bar | Last bar | Interpretation status |
+| --- | --- | --- | --- |
+| 2025-10-20 through 2025-10-24 | 01:00 | 23:58 | Normal neighbouring week |
+| 2025-10-27 through 2025-10-31 | 00:00 | 22:58 | Five sessions shifted exactly one hour earlier |
+| 2025-11-03 through 2025-11-07 | 01:00 | 23:58 | Normal boundary resumed |
+
+The affected week begins immediately after the European DST end on
+2025-10-26 and ends immediately before the US DST end on 2025-11-02. That
+timing is compatible with a DST-related interaction. It is not a confirmed
+seasonal server-clock convention: the same Europe/US autumn transition windows
+in 2022, 2023, and 2024 retain the normal 01:00 source open, and the historical
+record returns to 01:00 after only five sessions rather than for a winter
+season.
+
+There is a second, different 2025 boundary anomaly. From 2025-03-10 through
+2025-04-04, the first bar remains 01:00 while most daily last bars are 22:59;
+the normal 23:58 close resumes on 2025-04-07. This coincides with the interval
+between the 2025 US and European spring DST changes, but it changes only the
+closing boundary. It therefore cannot establish a single timezone conversion
+rule. Comparable historical gaps/early closes also occur around holidays and
+feed interruptions.
+
+The current live result and the dominant historical fit favor a UTC+3 research
+hypothesis. The two 2025 discontinuities prevent treating it as year-round
+server-clock proof. No fixed or ordinary Europe/US DST +2/+3 model explains
+both the dominant pattern and these intervals.
+
 ## Why this does not authorize UTC normalization
 
 The one-week 2025 source-clock reversal occurs in the Europe/US DST-transition
-period. It could reflect broker server-time behavior, an MT5 historical-feed
+period, and the spring 2025 close-only change provides a second incompatible
+pattern. They could reflect broker server-time behavior, an MT5 historical-feed
 artifact, or another vendor scheduling rule. The CSV cannot distinguish those
-possibilities. Applying fixed UTC+3 would silently move those bars by an hour;
-applying a conventional DST zone would contradict the surrounding source-clock
-pattern. The proper UTC-normalized evidence freeze therefore remains blocked
-until AssexMarkets confirms both:
+possibilities. Applying fixed UTC+3 would silently move affected bars by an
+hour; applying a conventional DST zone would contradict the surrounding
+source-clock pattern. MetaQuotes documents that chart-bar time corresponds to
+server time, while the current server clock is quote-derived; that does not
+identify a broker's historical DST schedule. The proper UTC-normalized evidence
+freeze therefore remains blocked until AssexMarkets confirms both:
 
 1. the XAUUSD MT5 server timezone and 2022–2026 DST schedule; and
 2. that native MT5 Bars exports use that server clock.
@@ -76,9 +117,20 @@ identifies the daily low-liquidity boundaries that need live coverage. It does
 not promote the session policy, alter the provisional spread policy, establish
 rollover, or authorize execution.
 
+On the **research-only UTC+3 hypothesis**, the usual source-clock 23:54/23:58
+to 01:00 boundary maps approximately to 20:54/20:58 to 22:00 UTC. That is the
+appropriate target interval for continued live spread collection, but must not
+be configured as an approved broker rollover policy until the external evidence
+above is obtained.
+
 ## External comparison source
 
 CME's published gold-futures material describes a Sunday–Friday session with a
 daily maintenance break. It is used only as the reference timing in this
 structural comparison, not as an AssexMarkets specification:
 https://www.cmegroup.com/trading/metals/files/fact-card-gold-futures-options.pdf
+
+MetaQuotes documents that `TimeCurrent()` returns last-known server time and
+that chart/bar time corresponds to server time:
+https://www.mql5.com/en/docs/dateandtime/timecurrent
+https://www.mql5.com/en/articles/599

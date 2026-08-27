@@ -78,8 +78,8 @@ Two independent local bridge paths are currently used:
 - Scope: read-only EURUSD M1 broker-infrastructure clock/session evidence only
 - No Candidate 006 audit consumer and no policy transfer to XAUUSD
 - Receiver prepared and health-checked on 2026-08-27. The attached
-  non-submitting EA has produced 177 accepted authenticated EURUSD receipts,
-  all with complete provenance, through 2026-08-27T10:57:12Z. Twenty-three
+  non-submitting EA has produced 200 accepted authenticated EURUSD receipts,
+  all with complete provenance, through 2026-08-27T11:08:42Z. Twenty-three
   preserved XAUUSD receipts in that database are excluded from EURUSD analysis
   and retained as contamination evidence.
   The 23 records span 09:22:53Z–10:41:01Z and have no payload-hash overlap
@@ -90,11 +90,17 @@ Two independent local bridge paths are currently used:
   simultaneous EURUSD/XAUUSD collection requires two charts and two EA
   instances. This preserves exclusive routing and does not weaken the
   read-only boundary.
-- The dedicated XAUUSD receiver recovered and reached 711 accepted receipts
- through 2026-08-27T10:56:48Z, adding sixteen fresh authenticated receipts with
+- The dedicated XAUUSD receiver recovered and reached 735 accepted receipts
+ through 2026-08-27T11:08:48Z, adding forty fresh authenticated receipts with
  current UTC+3 provenance. The parallel-terminal period also placed 23
   XAUUSD receipts in the EURUSD database; they remain excluded and do not
   weaken the dedicated XAUUSD evidence isolation.
+
+- Historical-boundary analysis of the frozen 1,629,646-row export found 1,191
+  source dates: 1,173 (98.5%) start at 01:00, with 1,197 gaps over 30 minutes
+  and 18 delayed/shifted opens. The recurring daily gap and delayed Friday
+  opens are historical observations, not authoritative session or holiday
+  rules. See `research/results/CANDIDATE_006_ASSEXMARKETS_HISTORICAL_BOUNDARIES_2026-08-27.md`.
 
 AssexMarkets must remain separated from the old 8765 log. After the MT5 account switch, the old 8765 database received AssexMarkets receipts and is considered contaminated for post-switch cross-broker comparison. Do not use it as clean AssexMarkets evidence.
 

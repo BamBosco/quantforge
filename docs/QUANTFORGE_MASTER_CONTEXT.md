@@ -23,6 +23,29 @@
 
 ## 3. Current architecture
 
+### External project reuse boundary
+
+QuantForge remains the authoritative system for MT5 evidence, XAUUSD policy,
+risk decisions, paper trading, simulation, reconciliation, and audit. External
+projects are references or optional research inputs, not replacement execution
+engines:
+
+- **Freqtrade**: reference its backtesting, dry-run, strategy-isolation, and
+  reporting practices. Its crypto exchange adapters are not used for MT5
+  XAUUSD execution.
+- **TradingAgents**: optional research/advisory layer for market-context
+  hypotheses. Its output may be stored as analyst evidence, but it cannot
+  approve orders, alter risk limits, or bypass the QuantForge risk gate.
+- **Superalgos**: optional future visualization and data-pipeline reference.
+  Do not introduce its large platform into Candidate 006 while core broker
+  evidence remains incomplete.
+- **ccxt/binance-trade-bot**: educational Binance-specific reference only; it
+  is not a Candidate 006 dependency and is not approved for deployment.
+
+This boundary prevents external frameworks from mixing broker-specific
+provenance, weakening the read-only/production authorization boundary, or
+creating a second source of truth.
+
 ### MT5 read-only observation
 
 Two independent local bridge paths are currently used:
@@ -309,12 +332,31 @@ The AssexMarkets historical evidence work added:
 - `research/results/CANDIDATE_006_ASSEXMARKETS_XAUUSD_M1_PROVENANCE_2026-08-26.json`
 
 The active evidence branch is `codex/xauusd-evidence-collection`, pushed through
-commit `f66739e`. Check the remote before making merge or PR claims.
+commit `9f8ea9c`. Check the remote before making merge or PR claims.
 
-Fresh verification at `f66739e`: 246 pytest tests passed, Ruff passed, and
+Fresh verification at `9f8ea9c`: 247 pytest tests passed, Ruff passed, and
 strict Mypy passed for production `src`.
 
 ## 13. Immediate next work
+
+### Stable completion rubric
+
+Do not recompute one overall percentage when a new evidence requirement is
+discovered. Report these fixed dimensions instead:
+
+| Dimension | Current state |
+| --- | --- |
+| Research infrastructure | Complete |
+| Historical replay | Complete |
+| Paper/simulation lifecycle | Complete |
+| Read-only broker observation | Complete |
+| Broker-specific session/timezone evidence | Incomplete |
+| Execution-quality distribution | Incomplete |
+| Production authorization | Not started; intentionally blocked |
+
+This rubric separates completed engineering from unresolved external broker
+facts and prevents progress reports from appearing to regress when scope is
+clarified.
 
 Highest-value sequence:
 

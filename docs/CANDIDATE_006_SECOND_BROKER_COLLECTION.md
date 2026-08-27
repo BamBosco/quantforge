@@ -19,6 +19,13 @@ Keep `live_trading_enabled`, `order_submission_enabled`, and every send flag
 false. Capture the broker server name in the receipt; it is the immutable
 broker identity used for later separation and audit.
 
+The EA is single-symbol/single-endpoint. For simultaneous EURUSD clock
+collection and XAUUSD Candidate 006 collection, use two charts and two EA
+instances in the same MT5 terminal: keep EURUSD pointed exclusively at
+`http://127.0.0.1:8767/v1/mt5/snapshots`, and configure this XAUUSD instance
+exclusively for `http://127.0.0.1:8766/v1/mt5/snapshots`. Do not switch one
+instance between symbols or endpoints.
+
 `QuantForgeReadOnlyBridge` version 1.01 additionally records MT5 server,
 terminal-local, and UTC clocks in each receipt's `time_provenance` object. It
 does not change the bridge endpoint, authentication, or read-only boundary.

@@ -36,12 +36,18 @@ The running receiver is read-only and accepts no broker-order endpoint.
 
 ## MT5 attachment
 
+The current EA is intentionally single-symbol and single-destination. Its
+`SymbolToReport` and `BridgeUrl` inputs are scalar, and one timer invocation
+constructs one payload and sends one POST. Do not switch inputs on one running
+instance: that creates a symbol/destination transition and contaminates the
+evidence interval.
+
 On the same `AssexmarketsGlobal-Trade` demo terminal:
 
 1. In **Tools → Options → Expert Advisors**, add
    `http://127.0.0.1:8767` to the WebRequest allow-list; keep the existing
    `:8766` entry for XAUUSD.
-2. Open `EURUSD` on M1 and attach another instance of the compiled existing
+2. Open `EURUSD` on M1 and attach one instance of the compiled existing
    `QuantForgeReadOnlyBridge` EA.
 3. Set `BridgeUrl` to
    `http://127.0.0.1:8767/v1/mt5/snapshots`, `SymbolToReport` to `EURUSD`,
@@ -51,6 +57,13 @@ On the same `AssexmarketsGlobal-Trade` demo terminal:
    chat.
 5. Confirm the EA's **Common** tab allows algorithmic trading only for this
    non-submitting EA. Do not enable any broker execution setting.
+6. Keep a separate XAUUSD M1 chart with a second EA instance configured for
+   `http://127.0.0.1:8766/v1/mt5/snapshots` and `SymbolToReport=XAUUSD`.
+
+Two charts and two EA instances are required for simultaneous collection with
+the current architecture. They may share one MT5 terminal and account. Each
+receiver persists only its own authenticated receipts, preserving broker
+identity, symbol, timestamps, provenance, and payload digests.
 
 The terminal should remain quiet on successful posts. Verify collection from
 the dedicated database, not terminal text.

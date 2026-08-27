@@ -10,7 +10,8 @@ cd ~/Documents/ChatGPT/Project
 export QUANTFORGE_MT5_BRIDGE_TOKEN='store outside the repository'
 PYTHONPATH=src python3 -m quantforge.infrastructure.mt5.read_only_bridge \
   --port 8766 \
-  --observation-log data/candidate_006_second_broker/mt5_observations.sqlite3
+  --observation-log data/candidate_006_second_broker/mt5_observations.sqlite3 \
+  --expected-symbol XAUUSD
 ```
 
 Attach `QuantForgeReadOnlyBridge` to the second broker's XAUUSD M1 chart with
@@ -34,6 +35,9 @@ receipt to establish the current server-to-UTC offset. Five accepted receipts
 collected on 2026-08-26 measured the server at UTC+3, terminal-local time at
 UTC+1, and the terminal UTC clock exactly. Repeat around a DST boundary before
 asserting the historical export's DST convention.
+
+The optional receiver `--expected-symbol XAUUSD` guard rejects authenticated
+EURUSD payloads before they enter the Candidate 006 database.
 
 ## Required collection coverage
 

@@ -9,12 +9,16 @@ can also create a gap.
 
 | Instrument | Clean accepted receipts | Database total | UTC coverage | Server offset |
 | --- | ---: | ---: | --- | --- |
-| EURUSD | 139 | 154 | 09:26:05–10:38:12Z | 139/139 at UTC+3 |
+| EURUSD | 148 | 171 | 09:26:05–10:42:42Z | 148/148 at UTC+3 |
 | XAUUSD | 700 | 700 | 2026-08-26 13:30:08–2026-08-27 10:31:39Z | 391/416 exact UTC+3 provenance |
 
-The EURUSD database contains fifteen preserved XAUUSD receipts from the
+The EURUSD database contains 23 preserved XAUUSD receipts from the
 parallel-terminal period; the analyzer filters them out by `broker_symbol`.
 The dedicated XAUUSD database remains the source of truth for Candidate 006.
+The records span 09:22:53Z–10:41:01Z, use the same account/source identity, and
+have no payload-hash overlap with the dedicated XAUUSD database. This pattern
+proves that the XAUUSD EA was temporarily configured to post to `:8767`; it is
+not a database duplication defect.
 
 ## Boundary detector result
 
@@ -39,11 +43,15 @@ No policy is promoted from these candidates.
 
 The `:8766` and `:8767` receiver processes are running. Both streams have now
 produced fresh accepted receipts after simultaneous attachment: EURUSD reached
-139 clean receipts through 10:38:12Z, and the dedicated XAUUSD database reached
-700 through 10:31:39Z. The EURUSD database also received fifteen XAUUSD
+148 clean receipts through 10:42:42Z, and the dedicated XAUUSD database reached
+700 through 10:31:39Z. The EURUSD database also received 23 XAUUSD
 receipts during the parallel-terminal period; these remain preserved and
 excluded from EURUSD analysis. This confirms delivery recovery, but not
 continuous boundary coverage.
+
+The receiver now supports an optional expected-symbol allow-list. It should be
+enabled on future dedicated processes (`EURUSD` on `:8767`, `XAUUSD` on
+`:8766`) to turn this configuration failure into an explicit HTTP rejection.
 
 ## Conclusions
 

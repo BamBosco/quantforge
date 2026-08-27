@@ -29,10 +29,13 @@ export QUANTFORGE_MT5_BRIDGE_TOKEN="$(tr -d '\r\n' < data/paper_mode/.mt5_bridge
 PYTHONPATH="$PWD/src" .venv/bin/python -m quantforge.infrastructure.mt5.read_only_bridge \
   --host 127.0.0.1 \
   --port 8767 \
-  --observation-log data/assexmarkets_eurusd/mt5_observations.sqlite3
+  --observation-log data/assexmarkets_eurusd/mt5_observations.sqlite3 \
+  --expected-symbol EURUSD
 ```
 
 The running receiver is read-only and accepts no broker-order endpoint.
+`--expected-symbol EURUSD` rejects authenticated snapshots routed from the
+wrong chart before they enter the EURUSD evidence database.
 
 ## MT5 attachment
 

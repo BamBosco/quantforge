@@ -225,6 +225,27 @@ def test_bridge_accepts_complete_v2_read_only_observation(tmp_path: Path) -> Non
         server.close()
 
 
+def test_bridge_can_reject_snapshots_for_another_symbol(tmp_path: Path) -> None:
+    database = tmp_path / "observations.sqlite3"
+    server = create_server(
+        "127.0.0.1", 0, "test-token", database, expected_symbol="EURUSD"
+    )
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        assert _post_snapshot(port, _payload()) == 400
+        import sqlite3
+
+        with sqlite3.connect(database) as connection:
+            assert connection.execute(
+                "SELECT count(*) FROM observation_event"
+            ).fetchone()[0] == 0
+    finally:
+        server.shutdown()
+        server.close()
+
+
 def test_bridge_preserves_terminal_clock_provenance(tmp_path: Path) -> None:
     database = tmp_path / "observations.sqlite3"
     server = create_server("127.0.0.1", 0, "test-token", database)

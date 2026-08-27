@@ -195,6 +195,7 @@ def create_server(
     observation_log_path: Path | str = _DEFAULT_OBSERVATION_LOG_PATH,
     *,
     candidate_006_audit_path: Path | str | None = None,
+    expected_symbol: str | None = None,
 ) -> ReadOnlyBridgeServer:
     """Create a loopback-only bridge server with its token held in memory."""
     if host not in {"127.0.0.1", "::1", "localhost"}:
@@ -215,7 +216,7 @@ def create_server(
         SQLiteMarketObservationLog(observation_log_path),
         candidate_006_consumer=consumer,
     )
-    handler = _handler_for(store, token)
+    handler = _handler_for(store, token, expected_symbol)
     try:
         return ReadOnlyBridgeServer((host, port), handler, store)
     except OSError:
@@ -240,6 +241,10 @@ def main() -> None:
             os.environ.get(_OBSERVATION_LOG_PATH_ENV, _DEFAULT_OBSERVATION_LOG_PATH)
         ),
     )
+    parser.add_argument(
+        "--expected-symbol",
+        help="reject authenticated snapshots whose broker symbol differs",
+    )
     arguments = parser.parse_args()
     if arguments.host not in {"127.0.0.1", "::1", "localhost"}:
         parser.error("the read-only bridge may bind only to loopback")
@@ -252,6 +257,7 @@ def main() -> None:
         token,
         arguments.observation_log,
         candidate_006_audit_path=arguments.candidate_006_audit,
+        expected_symbol=arguments.expected_symbol,
     )
     print(
         f"QuantForge read-only MT5 bridge listening on http://{arguments.host}:{arguments.port}"
@@ -264,7 +270,9 @@ def main() -> None:
         server.close()
 
 
-def _handler_for(store: SnapshotStore, token: str) -> type[BaseHTTPRequestHandler]:
+def _handler_for(
+    store: SnapshotStore, token: str, expected_symbol: str | None = None
+) -> type[BaseHTTPRequestHandler]:
     class BridgeHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
             if self.path == "/healthz":
@@ -295,6 +303,13 @@ def _handler_for(store: SnapshotStore, token: str) -> type[BaseHTTPRequestHandle
                     raise SnapshotValidationError("invalid request size")
                 payload = json.loads(self.rfile.read(content_length))
                 observation = ObservationEnvelope.from_payload(payload)
+                if (
+                    expected_symbol is not None
+                    and observation.broker_symbol != expected_symbol
+                ):
+                    raise SnapshotValidationError(
+                        f"unexpected broker symbol: {observation.broker_symbol}"
+                    )
                 store.record(observation)
                 # This intentionally reports no account data, prices, or credentials.
                 # It gives the operator one unambiguous, safe confirmation that the

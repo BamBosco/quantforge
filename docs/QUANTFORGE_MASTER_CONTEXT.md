@@ -243,6 +243,23 @@ clock exact (apart from ordinary sub-minute capture skew). This is ongoing
 observation coverage, not execution-quality evidence. It does not establish
 the historical export's timestamp basis or its winter/DST relationship.
 
+### Cross-instrument clock corroboration (2026-08-27)
+
+The isolated EURUSD receiver at `127.0.0.1:8767` is live and writes only to
+`data/assexmarkets_eurusd/mt5_observations.sqlite3`. At the analysis point it
+contained 19 accepted EURUSD receipts, all with complete time provenance and
+an exact MT5 server-minus-UTC offset of +180 minutes. The XAUUSD receiver at
+`:8766` contained 695 accepted receipts, 416 with provenance; 388/416 are
+within one minute of +180 minutes. Both streams name
+`AssexmarketsGlobal-Trade` and therefore corroborate the current **MT5 UTC+3**
+clock across two instruments.
+
+This does not resolve the historical XAUUSD export/DST convention. The public
+forex page labels its schedule "server time (GMT+0)," which conflicts with the
+direct current MT5 receipt data. Do not reinterpret either source silently or
+apply the FX schedule to XAUUSD. See
+`research/results/CANDIDATE_006_ASSEXMARKETS_CROSS_INSTRUMENT_CLOCK_2026-08-27.md`.
+
 ### Demo execution evidence
 
 The first controlled demo execution was performed manually in MT5 on the

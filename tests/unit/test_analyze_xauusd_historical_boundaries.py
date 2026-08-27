@@ -18,6 +18,16 @@ def test_analyze_daily_boundaries_and_long_gaps(tmp_path: Path) -> None:
     assert result["observed_dates"] == 2
     assert result["first_bar_hours"] == {1: 1, 2: 1}
     assert result["delayed_or_shifted_opens"][0]["first"] == "02:00"
+    assert result["early_close_candidates"] == [
+        {
+            "date": "2025-01-07",
+            "weekday": "Tuesday",
+            "first": "02:00",
+            "last": "02:01",
+            "first_spread": 30.0,
+            "last_spread": 12.0,
+        },
+    ]
     assert result["long_gap_count"] == 2
     assert result["gaps_over_30_minutes"][0]["before_spread"] == 8.0
     assert result["gaps_over_30_minutes"][0]["after_spread"] == 20.0

@@ -16,6 +16,11 @@ Source-clock times are reported as exported; no UTC conversion is assumed.
   2024–2025 Friday delayed opens between 00:01 and 00:19, one is a 2022
   02:01 open, and five are the exact 2025-10-27 through 2025-10-31
   00:00–22:58 anomaly.
+- Seventy-seven dates ended before 23:30 source time. Many cluster on known
+  US-market holiday dates (for example January/February/May/June/July/
+  September/November/December holidays), while others are feed gaps or the
+  October 2025 anomaly. They are holiday/early-close candidates, not a
+  broker-authoritative calendar.
 - Delayed opens often have elevated first-bar spreads (for example 54–176
   points on the 2024–2025 Friday cases), while the October 2025 anomaly has
   six-point first/last spreads. This supports a distinction between

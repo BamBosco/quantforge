@@ -101,6 +101,9 @@ Two independent local bridge paths are currently used:
   and 18 delayed/shifted opens. The recurring daily gap and delayed Friday
   opens are historical observations, not authoritative session or holiday
   rules. See `research/results/CANDIDATE_006_ASSEXMARKETS_HISTORICAL_BOUNDARIES_2026-08-27.md`.
+  A thresholded scan also identifies 77 dates ending before 23:30 source time,
+  many aligned with recognizable US holiday dates; these remain holiday/early-
+  close candidates rather than a broker calendar.
 
 AssexMarkets must remain separated from the old 8765 log. After the MT5 account switch, the old 8765 database received AssexMarkets receipts and is considered contaminated for post-switch cross-broker comparison. Do not use it as clean AssexMarkets evidence.
 

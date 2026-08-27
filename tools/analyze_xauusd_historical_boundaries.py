@@ -63,12 +63,25 @@ def analyze(path: Path) -> dict[str, Any]:
         for date_key, item in daily.items()
         if item["first"].hour != 1
     ]
+    early_closes = [
+        {
+            "date": date_key,
+            "weekday": datetime.fromisoformat(date_key).strftime("%A"),
+            "first": item["first"].strftime("%H:%M"),
+            "last": item["last"].strftime("%H:%M"),
+            "first_spread": item["first_spread"],
+            "last_spread": item["last_spread"],
+        }
+        for date_key, item in daily.items()
+        if item["last"].hour * 60 + item["last"].minute < 23 * 60 + 30
+    ]
     return {
         "dataset": str(path),
         "observed_dates": len(daily),
         "first_bar_hours": dict(sorted(first_hours.items())),
         "last_bar_hours": dict(sorted(last_hours.items())),
         "delayed_or_shifted_opens": delayed_opens,
+        "early_close_candidates": early_closes,
         "gaps_over_30_minutes": gaps,
         "long_gap_count": len(gaps),
         "largest_gap_seconds": max(

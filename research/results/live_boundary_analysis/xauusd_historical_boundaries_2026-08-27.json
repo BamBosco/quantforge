@@ -146,6 +146,624 @@
       "weekday": "Friday"
     }
   ],
+  "early_close_candidates": [
+    {
+      "date": "2022-01-17",
+      "first": "01:00",
+      "first_spread": 11.0,
+      "last": "21:30",
+      "last_spread": 122.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2022-02-21",
+      "first": "01:00",
+      "first_spread": 0.0,
+      "last": "21:15",
+      "last_spread": 1.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2022-05-30",
+      "first": "01:00",
+      "first_spread": 53.0,
+      "last": "21:30",
+      "last_spread": 64.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2022-06-20",
+      "first": "01:00",
+      "first_spread": 196.0,
+      "last": "21:30",
+      "last_spread": 32.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2022-07-04",
+      "first": "01:00",
+      "first_spread": 96.0,
+      "last": "22:47",
+      "last_spread": 101.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2022-09-05",
+      "first": "01:00",
+      "first_spread": 0.0,
+      "last": "21:30",
+      "last_spread": 32.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2022-11-24",
+      "first": "01:00",
+      "first_spread": 54.0,
+      "last": "21:38",
+      "last_spread": 32.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2022-11-25",
+      "first": "01:00",
+      "first_spread": 36.0,
+      "last": "20:45",
+      "last_spread": 101.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2023-01-16",
+      "first": "01:00",
+      "first_spread": 8.0,
+      "last": "21:30",
+      "last_spread": 0.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2023-02-20",
+      "first": "01:00",
+      "first_spread": 18.0,
+      "last": "21:36",
+      "last_spread": 84.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2023-05-29",
+      "first": "01:00",
+      "first_spread": 26.0,
+      "last": "21:58",
+      "last_spread": 200.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2023-07-04",
+      "first": "01:00",
+      "first_spread": 43.0,
+      "last": "21:33",
+      "last_spread": 223.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2023-09-04",
+      "first": "01:00",
+      "first_spread": 26.0,
+      "last": "21:30",
+      "last_spread": 31.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2023-11-23",
+      "first": "01:00",
+      "first_spread": 73.0,
+      "last": "23:08",
+      "last_spread": 975.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2023-11-24",
+      "first": "01:00",
+      "first_spread": 43.0,
+      "last": "20:44",
+      "last_spread": 17.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2024-05-27",
+      "first": "01:00",
+      "first_spread": 50.0,
+      "last": "21:30",
+      "last_spread": 110.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2024-06-19",
+      "first": "01:00",
+      "first_spread": 0.0,
+      "last": "21:30",
+      "last_spread": 11.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2024-07-04",
+      "first": "01:00",
+      "first_spread": 37.0,
+      "last": "21:30",
+      "last_spread": 111.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2024-09-02",
+      "first": "01:00",
+      "first_spread": 0.0,
+      "last": "21:29",
+      "last_spread": 5.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2024-11-28",
+      "first": "01:00",
+      "first_spread": 200.0,
+      "last": "21:30",
+      "last_spread": 22.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2024-11-29",
+      "first": "01:00",
+      "first_spread": 14.0,
+      "last": "21:44",
+      "last_spread": 18.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2024-12-24",
+      "first": "01:00",
+      "first_spread": 158.0,
+      "last": "20:44",
+      "last_spread": 25.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2025-01-20",
+      "first": "01:00",
+      "first_spread": 28.0,
+      "last": "21:30",
+      "last_spread": 182.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-02-17",
+      "first": "01:00",
+      "first_spread": 12.0,
+      "last": "21:29",
+      "last_spread": 2.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-03-10",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 10.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-03-11",
+      "first": "01:00",
+      "first_spread": 9.0,
+      "last": "22:59",
+      "last_spread": 6.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2025-03-12",
+      "first": "01:00",
+      "first_spread": 13.0,
+      "last": "22:59",
+      "last_spread": 13.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2025-03-13",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 30.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-03-14",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 37.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-03-17",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 6.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-03-18",
+      "first": "01:00",
+      "first_spread": 11.0,
+      "last": "23:00",
+      "last_spread": 145.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2025-03-19",
+      "first": "01:00",
+      "first_spread": 7.0,
+      "last": "22:59",
+      "last_spread": 6.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2025-03-20",
+      "first": "01:00",
+      "first_spread": 16.0,
+      "last": "23:00",
+      "last_spread": 152.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-03-21",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 34.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-03-24",
+      "first": "01:00",
+      "first_spread": 7.0,
+      "last": "22:59",
+      "last_spread": 17.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-03-25",
+      "first": "01:00",
+      "first_spread": 10.0,
+      "last": "22:59",
+      "last_spread": 12.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2025-03-26",
+      "first": "01:00",
+      "first_spread": 13.0,
+      "last": "22:59",
+      "last_spread": 12.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2025-03-27",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 14.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-03-28",
+      "first": "01:00",
+      "first_spread": 7.0,
+      "last": "22:59",
+      "last_spread": 39.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-03-31",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 15.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-04-01",
+      "first": "01:00",
+      "first_spread": 16.0,
+      "last": "22:59",
+      "last_spread": 6.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2025-04-02",
+      "first": "01:00",
+      "first_spread": 13.0,
+      "last": "22:59",
+      "last_spread": 6.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2025-04-03",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 6.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-04-04",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "22:59",
+      "last_spread": 32.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-05-26",
+      "first": "01:00",
+      "first_spread": 23.0,
+      "last": "22:11",
+      "last_spread": 200.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-06-19",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "21:29",
+      "last_spread": 9.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-07-04",
+      "first": "01:00",
+      "first_spread": 12.0,
+      "last": "20:00",
+      "last_spread": 25.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-09-01",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "21:56",
+      "last_spread": 145.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-10-27",
+      "first": "00:00",
+      "first_spread": 6.0,
+      "last": "22:58",
+      "last_spread": 6.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2025-10-28",
+      "first": "00:00",
+      "first_spread": 6.0,
+      "last": "22:58",
+      "last_spread": 6.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2025-10-29",
+      "first": "00:00",
+      "first_spread": 6.0,
+      "last": "22:58",
+      "last_spread": 6.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2025-10-30",
+      "first": "00:00",
+      "first_spread": 6.0,
+      "last": "22:58",
+      "last_spread": 6.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-10-31",
+      "first": "00:00",
+      "first_spread": 6.0,
+      "last": "22:58",
+      "last_spread": 6.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-11-27",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "21:29",
+      "last_spread": 6.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2025-11-28",
+      "first": "01:00",
+      "first_spread": 6.0,
+      "last": "21:45",
+      "last_spread": 25.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2025-12-24",
+      "first": "01:00",
+      "first_spread": 10.0,
+      "last": "20:45",
+      "last_spread": 32.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2026-01-19",
+      "first": "01:00",
+      "first_spread": 23.0,
+      "last": "21:53",
+      "last_spread": 358.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2026-02-16",
+      "first": "01:00",
+      "first_spread": 27.0,
+      "last": "21:29",
+      "last_spread": 30.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2026-03-09",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "23:00",
+      "last_spread": 212.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2026-03-10",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "23:00",
+      "last_spread": 195.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2026-03-11",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "23:00",
+      "last_spread": 80.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2026-03-12",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "18:29",
+      "last_spread": 15.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2026-03-13",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "22:59",
+      "last_spread": 27.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2026-03-16",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "22:59",
+      "last_spread": 27.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2026-03-17",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "22:59",
+      "last_spread": 27.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2026-03-18",
+      "first": "01:00",
+      "first_spread": 15.0,
+      "last": "23:00",
+      "last_spread": 160.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2026-03-19",
+      "first": "01:00",
+      "first_spread": 11.0,
+      "last": "22:59",
+      "last_spread": 29.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2026-03-20",
+      "first": "01:00",
+      "first_spread": 19.0,
+      "last": "22:59",
+      "last_spread": 29.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2026-03-23",
+      "first": "01:00",
+      "first_spread": 19.0,
+      "last": "23:00",
+      "last_spread": 214.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2026-03-24",
+      "first": "01:00",
+      "first_spread": 19.0,
+      "last": "22:59",
+      "last_spread": 29.0,
+      "weekday": "Tuesday"
+    },
+    {
+      "date": "2026-03-25",
+      "first": "01:00",
+      "first_spread": 19.0,
+      "last": "22:59",
+      "last_spread": 29.0,
+      "weekday": "Wednesday"
+    },
+    {
+      "date": "2026-03-26",
+      "first": "01:00",
+      "first_spread": 19.0,
+      "last": "23:00",
+      "last_spread": 191.0,
+      "weekday": "Thursday"
+    },
+    {
+      "date": "2026-03-27",
+      "first": "01:00",
+      "first_spread": 14.0,
+      "last": "22:59",
+      "last_spread": 29.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2026-05-25",
+      "first": "01:00",
+      "first_spread": 20.0,
+      "last": "22:17",
+      "last_spread": 32.0,
+      "weekday": "Monday"
+    },
+    {
+      "date": "2026-06-19",
+      "first": "01:00",
+      "first_spread": 20.0,
+      "last": "20:00",
+      "last_spread": 9.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2026-07-03",
+      "first": "01:00",
+      "first_spread": 27.0,
+      "last": "20:00",
+      "last_spread": 17.0,
+      "weekday": "Friday"
+    },
+    {
+      "date": "2026-08-14",
+      "first": "01:00",
+      "first_spread": 22.0,
+      "last": "11:59",
+      "last_spread": 7.0,
+      "weekday": "Friday"
+    }
+  ],
   "first_bar_hours": {
     "0": 17,
     "1": 1173,

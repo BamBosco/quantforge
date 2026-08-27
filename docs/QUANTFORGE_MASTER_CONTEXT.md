@@ -199,8 +199,8 @@ Treat these as broker-observed facts tied to the relevant receipts, not universa
 
 ### Current live receipt coverage
 
-The dedicated AssexMarkets observation database currently contains 303 accepted
-receipts spanning 2026-08-26T13:30:08Z through 2026-08-26T20:40:04Z. Twenty-four
+The dedicated AssexMarkets observation database currently contains 462 accepted
+receipts spanning 2026-08-26T13:30:08Z through 2026-08-27T03:44:03Z. 183
 receipts include the EA 1.01 `time_provenance` object; all measured server
 UTC+3, terminal-local UTC+1, and terminal UTC exact. This is ongoing
 observation coverage, not execution-quality evidence.

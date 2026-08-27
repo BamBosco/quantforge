@@ -9,7 +9,7 @@ can also create a gap.
 
 | Instrument | Clean accepted receipts | Database total | UTC coverage | Server offset |
 | --- | ---: | ---: | --- | --- |
-| EURUSD | 46 | 53 | 09:26:05–09:50:28 | 46/46 at UTC+3 |
+| EURUSD | 52 | 59 | 09:26:05–09:53:28 | 52/52 at UTC+3 |
 | XAUUSD | 695 | 695 | 2026-08-26 13:30:08–2026-08-27 09:22:13 | 386/416 exact UTC+3 provenance |
 
 The EURUSD database contains seven preserved pre-attachment XAUUSD receipts;
@@ -28,12 +28,17 @@ The reproducible command is:
 EURUSD has one 143-second **ordinary collection gap** from
 09:26:35Z to 09:28:58Z. It is Thursday, with spreads changing from 15 to
 16 points, and is not a daily, rollover, or weekly candidate. The latest
-receipt is 09:50:28Z with a 16-point spread.
+receipt is 09:53:28Z with a 16-point spread.
 
 Applying the same detector to XAUUSD produces long-gap candidates, but the
 receipt cadence is too sparse to distinguish an actual metal session break
 from collector downtime. No weekly boundary is observed in either stream.
 No policy is promoted from these candidates.
+
+The `:8766` and `:8767` receiver processes are running. XAUUSD remains stale
+after its last receipt at 09:22:13Z, indicating that its EA is not currently
+posting; restoring it requires reattaching the existing read-only EA to the
+XAUUSD M1 chart in MT5.
 
 ## Conclusions
 

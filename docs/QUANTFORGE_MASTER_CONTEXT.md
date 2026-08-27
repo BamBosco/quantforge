@@ -176,7 +176,10 @@ Do not modify the raw CSV.
 4. Holiday and rollover rules.
 5. Margin and volume rules.
 6. Continued independent `:8766` live receipt collection across normal/stressed/rollover/news conditions.
-7. Independent execution-quality evidence if deviation policy is ever to be promoted: request time, quote, fill, latency, slippage/adverse movement, rejection/retcode, reconciliation.
+7. Additional independent execution-quality evidence if deviation policy is
+   ever to be promoted: request time, quote, fill, latency, slippage/adverse
+   movement, rejection/retcode, reconciliation. One demo round trip is now
+   recorded, including broker fill prices and post-close reconciliation.
 8. Proper UTC-normalized evidence freeze once the DST/export relationship is
    authoritative.
 

@@ -38,6 +38,15 @@ Two independent local bridge paths are currently used:
 - Dedicated database: `data/candidate_006_second_broker/mt5_observations.sqlite3`
 - Dedicated audit DB: `data/candidate_006_second_broker/xauusd_audit.sqlite3`
 
+**AssexMarkets EURUSD clock evidence**
+- Bridge: `127.0.0.1:8767`
+- Separate database: `data/assexmarkets_eurusd/mt5_observations.sqlite3`
+- Scope: read-only EURUSD M1 broker-infrastructure clock/session evidence only
+- No Candidate 006 audit consumer and no policy transfer to XAUUSD
+- Receiver prepared and health-checked on 2026-08-27; receipt collection begins
+  only after the existing non-submitting EA is attached to EURUSD M1 with its
+  existing private token and the `:8767` WebRequest allow-list entry.
+
 AssexMarkets must remain separated from the old 8765 log. After the MT5 account switch, the old 8765 database received AssexMarkets receipts and is considered contaminated for post-switch cross-broker comparison. Do not use it as clean AssexMarkets evidence.
 
 ### Candidate 006
@@ -282,6 +291,8 @@ A fresh full pytest/Ruff/strict-Mypy run after this exact evidence-branch state 
 Highest-value sequence:
 
 1. Keep both read-only observation paths healthy, especially AssexMarkets `:8766`.
+   Keep the isolated AssexMarkets EURUSD `:8767` stream healthy once attached;
+   use it to compare published forex server-time claims with current MT5 clocks.
 2. Establish AssexMarkets timezone/DST and XAUUSD trading-hours provenance.
 3. Verify contract/margin/volume documentation against live observed facts.
 4. Freeze the historical dataset through the normal UTC workflow once timezone is authoritative.

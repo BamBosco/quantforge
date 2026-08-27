@@ -256,6 +256,39 @@ def test_bridge_preserves_terminal_clock_provenance(tmp_path: Path) -> None:
         server.close()
 
 
+def test_generic_bridge_keeps_eurusd_receipts_in_their_own_log(tmp_path: Path) -> None:
+    """EURUSD clock evidence must not require Candidate 006's XAUUSD audit."""
+    database = tmp_path / "assexmarkets_eurusd.sqlite3"
+    server = create_server("127.0.0.1", 0, "test-token", database)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        observation = demo_observation(
+            observed_at=datetime(2026, 8, 27, 4, tzinfo=UTC),
+            bid=Decimal("1.17000"),
+            ask=Decimal("1.17010"),
+        )
+        observation.payload["instrument"]["canonical_instrument"] = "EURUSD"
+        observation.payload["instrument"]["broker_symbol"] = "EURUSD"
+        observation.payload["time_provenance"] = {
+            "terminal_server_time": "2026.08.27 07:00:00",
+            "terminal_local_time": "2026.08.27 05:00:00",
+            "terminal_utc_time": "2026-08-27T04:00:00Z",
+        }
+        assert _post_snapshot(server.server_address[1], observation.payload) == 202
+
+        latest = HTTPConnection("127.0.0.1", server.server_address[1])
+        latest.request(
+            "GET", "/v1/mt5/latest", headers={"Authorization": "Bearer test-token"}
+        )
+        payload = json.loads(latest.getresponse().read())
+        assert payload["instrument"]["canonical_instrument"] == "EURUSD"
+        assert database.exists()
+    finally:
+        server.shutdown()
+        server.close()
+
+
 def test_bridge_opt_in_persists_only_fresh_complete_candidate_006_receipts(
     tmp_path: Path,
 ) -> None:

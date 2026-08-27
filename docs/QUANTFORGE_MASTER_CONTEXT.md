@@ -199,11 +199,13 @@ Treat these as broker-observed facts tied to the relevant receipts, not universa
 
 ### Current live receipt coverage
 
-The dedicated AssexMarkets observation database currently contains 462 accepted
-receipts spanning 2026-08-26T13:30:08Z through 2026-08-27T03:44:03Z. 183
-receipts include the EA 1.01 `time_provenance` object; all measured server
-UTC+3, terminal-local UTC+1, and terminal UTC exact. This is ongoing
-observation coverage, not execution-quality evidence.
+The dedicated AssexMarkets observation database currently contains 473 accepted
+receipts spanning 2026-08-26T13:30:08Z through 2026-08-27T03:49:33Z. 194
+receipts include the EA 1.01 `time_provenance` object; they establish the
+current server clock at UTC+3, terminal-local clock at UTC+1, and terminal UTC
+clock exact (apart from ordinary sub-minute capture skew). This is ongoing
+observation coverage, not execution-quality evidence. It does not establish
+the historical export's timestamp basis or its winter/DST relationship.
 
 ### Demo execution evidence
 
@@ -216,9 +218,9 @@ equity at 19,999.10 USD. No production or live-capital execution occurred.
 
 ## 9. AssexMarkets external documentation note
 
-Public AssexMarkets material consulted during the handoff indicates XAU/USD is available through MT5 and contains margin/trading-hours information. Public forex material states GMT+0 for its forex trading-hours table, but this does not by itself prove that the historical XAUUSD CSV uses GMT+0. Do not use the public statement as a substitute for export/server provenance.
+Public AssexMarkets material consulted during the handoff indicates XAU/USD is available through MT5 and that metal margin can be tiered by position size. Public forex material states GMT+0 for its forex trading-hours table and 21:00 GMT+0 forex swaps, but it does not bind either statement to XAUUSD metals or to the historical export. Do not use it as a substitute for export/server provenance.
 
-Public material also indicates restrictions around automated EA order submission. This matters for eventual production authorization with AssexMarkets. It does not affect the current read-only collection path.
+The broker's published terms prohibit automated bots, scripts, and EAs that submit orders without direct manual intervention. This matters for eventual production authorization with AssexMarkets: it is an external constraint as well as QuantForge's own disabled execution boundary. It does not affect the current read-only collection path.
 
 ## 10. Historical replay / paper state
 

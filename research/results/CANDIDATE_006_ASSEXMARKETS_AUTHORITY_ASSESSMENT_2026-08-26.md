@@ -30,10 +30,13 @@ USD profit and margin currencies; volume minimum/step/maximum 0.01/0.01/100;
 FOK, IOC, and BOC filling modes; stop/freeze levels 0/0; calculation, trade,
 and order modes 2/4/127; and account equity 20,000 USD with no current margin.
 
-These are receipt-linked observations, not enduring broker promises. The
-previous EA receipts did not retain raw MT5 server-clock time, so they cannot
-retrospectively establish a server offset. EA 1.01 adds append-only
-`time_provenance` for future receipts; it must be compiled and reattached.
+These are receipt-linked observations, not enduring broker promises. EA 1.01
+has been compiled and attached. As of 2026-08-27, 194 accepted receipts retain
+append-only `time_provenance`: their terminal UTC clock matches the receipt
+event time, terminal-local clock is UTC+1, and terminal server clock is UTC+3
+(allowing the ordinary sub-minute capture skew). This establishes the current
+server offset only; it cannot retrospectively establish the historical export
+clock or the server's winter/DST convention.
 
 ## C. Historical CSV-derived facts
 
@@ -72,3 +75,13 @@ remains scoped to its own provisional research profile.
 4. Additional broker-authorized demo request/fill/rejection evidence before any
    review of execution deviation. The first manual demo round trip is recorded
    but is insufficient to establish a policy.
+
+## Production-execution constraint
+
+The broker's published terms prohibit automated trading bots, scripts, and
+Expert Advisors that submit orders without direct manual intervention. This is
+an external broker constraint in addition to QuantForge's existing disabled
+production-execution boundary. The current authenticated EA is read-only and
+does not conflict with that restriction. Any future production-execution
+proposal requires explicit written broker authorization and an independent
+owner authorization; none is implied by this evidence assessment.

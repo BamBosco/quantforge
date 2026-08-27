@@ -51,6 +51,12 @@ An external XAUUSD repository review is recorded in
 reusable research patterns, but no external strategy or claimed performance
 that is suitable for direct deployment or policy promotion.
 
+A broader 26-repository GitHub survey is recorded in
+`research/results/GITHUB_TRADING_REPOSITORY_SURVEY_2026-08-27.md`. Its fixed
+decision is to borrow isolated research and testing patterns only; no turnkey
+EA, grid logic, fixed-pip policy, claimed win rate, or live connector becomes a
+second QuantForge source of truth.
+
 ### MT5 read-only observation
 
 Two independent local bridge paths are currently used:

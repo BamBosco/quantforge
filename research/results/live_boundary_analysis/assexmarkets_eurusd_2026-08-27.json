@@ -1,0 +1,46 @@
+{
+  "accepted_receipts": 43,
+  "boundary_gap_candidates": [
+    {
+      "after_server_minus_utc_minutes": 180,
+      "after_spread_points": 16.0,
+      "after_utc": "2026-08-27T09:28:58+00:00",
+      "after_weekday": "Thursday",
+      "before_server_minus_utc_minutes": 180,
+      "before_spread_points": 15.0,
+      "before_utc": "2026-08-27T09:26:35+00:00",
+      "before_weekday": "Thursday",
+      "boundary_type": "unclassified_long_gap",
+      "classification": "ordinary_collection_gap",
+      "gap_seconds": 143.0
+    }
+  ],
+  "boundary_gap_classifications": {
+    "ordinary_collection_gap": 1
+  },
+  "database": "data/assexmarkets_eurusd/mt5_observations.sqlite3",
+  "database_total_receipts": 50,
+  "first_event_utc": "2026-08-27T09:26:05+00:00",
+  "instrument": "EURUSD",
+  "largest_observation_gap_seconds": 143.0,
+  "last_event_utc": "2026-08-27T09:48:58+00:00",
+  "local_minus_utc_minutes": {
+    "60": 43
+  },
+  "observation_gaps_over_90_seconds": 1,
+  "provenance_receipts": 43,
+  "schedule_coverage": {
+    "daily_break": "not_observed",
+    "dst_boundary": "not_observed",
+    "rollover": "not_observed",
+    "weekly_open_close": "not_observed"
+  },
+  "server_minus_utc_minutes": {
+    "180": 43
+  },
+  "spread_points": {
+    "maximum": 17.0,
+    "minimum": 15.0
+  },
+  "total_receipts": 43
+}

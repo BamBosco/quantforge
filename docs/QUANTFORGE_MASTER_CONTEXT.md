@@ -44,7 +44,7 @@ Two independent local bridge paths are currently used:
 - Scope: read-only EURUSD M1 broker-infrastructure clock/session evidence only
 - No Candidate 006 audit consumer and no policy transfer to XAUUSD
 - Receiver prepared and health-checked on 2026-08-27. The attached
-  non-submitting EA has produced 34 accepted authenticated EURUSD receipts,
+  non-submitting EA has produced 42 accepted authenticated EURUSD receipts,
   all with complete provenance, through 2026-08-27T09:41:58Z. Seven earlier
   XAUUSD receipts in that database are excluded from EURUSD analysis and
   retained as contamination evidence.
@@ -121,7 +121,7 @@ terminal-local time as UTC+1, and the terminal UTC clock as exact. This proves
 the current server offset, but not the January-August export's winter offset or
 the broker's DST rule. Historical source-clock hours remain provisional until
 a DST-boundary receipt or broker-authoritative confirmation is captured.
-EURUSD now provides 34/34 current UTC+3 receipts, but its eighteen-minute
+EURUSD now provides 42/42 current UTC+3 receipts, but its twenty-two-minute
 observation window contains no weekly close/open, daily break, rollover, or
 DST boundary.
 

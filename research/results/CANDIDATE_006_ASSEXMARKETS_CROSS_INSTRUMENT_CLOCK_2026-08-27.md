@@ -16,8 +16,8 @@ the accepted receipt event time for the fresh receipts considered here.
 
 | Stream | Database | Accepted receipts at analysis | Provenance receipts | Broker server |
 | --- | --- | ---: | ---: | --- |
-| XAUUSD | `data/candidate_006_second_broker/mt5_observations.sqlite3` | 707 | 423 | `AssexmarketsGlobal-Trade` |
-| EURUSD | `data/assexmarkets_eurusd/mt5_observations.sqlite3` | 172 | 172 | `AssexmarketsGlobal-Trade` |
+| XAUUSD | `data/candidate_006_second_broker/mt5_observations.sqlite3` | 711 | 426 | `AssexmarketsGlobal-Trade` |
+| EURUSD | `data/assexmarkets_eurusd/mt5_observations.sqlite3` | 177 | 177 | `AssexmarketsGlobal-Trade` |
 
 The two databases remain separate. No observation was routed through a broker
 order endpoint, and no position or fill is inferred from these quotes.
@@ -26,12 +26,12 @@ order endpoint, and no position or fill is inferred from these quotes.
 
 | Instrument | Exact +180-minute server-minus-UTC result | Within one minute of +180 | Result |
 | --- | ---: | ---: | --- |
-| EURUSD | 172/172 | 172/172 | Uniform current MT5 UTC+3 |
-| XAUUSD | 398/423 | 398/423 | Fresh/current observations support MT5 UTC+3 |
+| EURUSD | 177/177 | 177/177 | Uniform current MT5 UTC+3 |
+| XAUUSD | 402/426 | 402/426 | Fresh/current observations support MT5 UTC+3 |
 
-All 172 clean EURUSD receipts have a server-minus-UTC offset of exactly 180
+All 177 clean EURUSD receipts have a server-minus-UTC offset of exactly 180
 minutes; their terminal-local-minus-UTC offset is exactly 60 minutes. For
-XAUUSD, 398 of 423 receipts are within one minute of +180 minutes, including the current
+XAUUSD, 402 of 426 receipts are within one minute of +180 minutes, including the current
 healthy run. The remaining 28 receipts occur in an earlier interrupted/stale
 quote interval and range from about +165 to +179 minutes. `TimeCurrent()` is
 the time of the last quote received by the terminal rather than a local clock;

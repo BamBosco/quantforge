@@ -9,8 +9,8 @@ can also create a gap.
 
 | Instrument | Clean accepted receipts | Database total | UTC coverage | Server offset |
 | --- | ---: | ---: | --- | --- |
-| EURUSD | 172 | 195 | 09:26:05–10:54:42Z | 172/172 at UTC+3 |
-| XAUUSD | 707 | 707 | 2026-08-26 13:30:08–2026-08-27 10:54:48Z | 398/423 exact UTC+3 provenance |
+| EURUSD | 177 | 200 | 09:26:05–10:57:12Z | 177/177 at UTC+3 |
+| XAUUSD | 711 | 711 | 2026-08-26 13:30:08–2026-08-27 10:56:48Z | 402/426 exact UTC+3 provenance |
 
 The EURUSD database contains 23 preserved XAUUSD receipts from the
 parallel-terminal period; the analyzer filters them out by `broker_symbol`.
@@ -32,9 +32,8 @@ The reproducible command is:
 
 EURUSD has one 143-second **ordinary collection gap** from 09:26:35Z to
 09:28:58Z. It is Thursday, with spreads changing from 15 to 16 points, and is
-not a daily, rollover, or weekly candidate. The restored XAUUSD stream added
-twelve accepted receipts from 10:29:39Z through 10:54:48Z, with spreads of
-24–30 points and current UTC+3 provenance.
+not a daily, rollover, or weekly candidate. The restored XAUUSD stream continued through 10:56:48Z, with spreads of
+24–37 points and current UTC+3 provenance.
 
 Applying the same detector to XAUUSD produces long-gap candidates, but the
 receipt cadence is too sparse to distinguish an actual metal session break
@@ -42,9 +41,9 @@ from collector downtime. No weekly boundary is observed in either stream.
 No policy is promoted from these candidates.
 
 The `:8766` and `:8767` receiver processes are running with expected-symbol
-guards. EURUSD resumed after the guarded restart and reached 172 clean
-receipts through 10:54:42Z. XAUUSD resumed after the URL correction and reached
-707 dedicated receipts through 10:54:48Z. The EURUSD database also received 23 XAUUSD
+guards. EURUSD resumed after the guarded restart and reached 177 clean
+receipts through 10:57:12Z. XAUUSD resumed after the URL correction and reached
+711 dedicated receipts through 10:56:48Z. The EURUSD database also received 23 XAUUSD
 receipts during the parallel-terminal period; these remain preserved and
 excluded from EURUSD analysis. This confirms delivery recovery, but not
 continuous boundary coverage.

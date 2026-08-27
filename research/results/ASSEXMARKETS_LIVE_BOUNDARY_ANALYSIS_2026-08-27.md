@@ -9,11 +9,12 @@ can also create a gap.
 
 | Instrument | Clean accepted receipts | Database total | UTC coverage | Server offset |
 | --- | ---: | ---: | --- | --- |
-| EURUSD | 52 | 59 | 09:26:05–09:53:28 | 52/52 at UTC+3 |
-| XAUUSD | 695 | 695 | 2026-08-26 13:30:08–2026-08-27 09:22:13 | 386/416 exact UTC+3 provenance |
+| EURUSD | 139 | 154 | 09:26:05–10:38:12Z | 139/139 at UTC+3 |
+| XAUUSD | 700 | 700 | 2026-08-26 13:30:08–2026-08-27 10:31:39Z | 391/416 exact UTC+3 provenance |
 
-The EURUSD database contains seven preserved pre-attachment XAUUSD receipts;
-the analyzer filters them out by `broker_symbol`.
+The EURUSD database contains fifteen preserved XAUUSD receipts from the
+parallel-terminal period; the analyzer filters them out by `broker_symbol`.
+The dedicated XAUUSD database remains the source of truth for Candidate 006.
 
 ## Boundary detector result
 
@@ -25,23 +26,24 @@ The reproducible command is:
   --instrument EURUSD --output research/results/live_boundary_analysis/eurusd.json
 ```
 
-EURUSD has one 143-second **ordinary collection gap** from
-09:26:35Z to 09:28:58Z. It is Thursday, with spreads changing from 15 to
-16 points, and is not a daily, rollover, or weekly candidate. The latest
-receipt is 09:53:28Z with a 16-point spread.
+EURUSD has one 143-second **ordinary collection gap** from 09:26:35Z to
+09:28:58Z. It is Thursday, with spreads changing from 15 to 16 points, and is
+not a daily, rollover, or weekly candidate. The restored XAUUSD stream added
+five accepted receipts from 10:29:39Z through 10:31:39Z, with spreads of
+24–29 points and exact UTC+3 provenance.
 
 Applying the same detector to XAUUSD produces long-gap candidates, but the
 receipt cadence is too sparse to distinguish an actual metal session break
 from collector downtime. No weekly boundary is observed in either stream.
 No policy is promoted from these candidates.
 
-The `:8766` and `:8767` receiver processes are running. The MT5 screenshots
-show both EA instances attached, but runtime verification shows only EURUSD
-posting: EURUSD reached 120 accepted receipts through 10:27:18Z, while XAUUSD
-remains at 695 receipts with its last receipt at 09:22:13Z. Attachment is
-therefore not sufficient evidence of delivery; the XAUUSD EA's WebRequest
-success must be confirmed from a new accepted database receipt. No XAUUSD
-boundary conclusion is drawn from the stale stream.
+The `:8766` and `:8767` receiver processes are running. Both streams have now
+produced fresh accepted receipts after simultaneous attachment: EURUSD reached
+139 clean receipts through 10:38:12Z, and the dedicated XAUUSD database reached
+700 through 10:31:39Z. The EURUSD database also received fifteen XAUUSD
+receipts during the parallel-terminal period; these remain preserved and
+excluded from EURUSD analysis. This confirms delivery recovery, but not
+continuous boundary coverage.
 
 ## Conclusions
 
@@ -54,6 +56,9 @@ boundary conclusion is drawn from the stale stream.
 - The live evidence strengthens the current-offset portion of the XAUUSD
   UTC+3 hypothesis, but does not resolve its 2025 historical anomaly or permit
   UTC normalization.
+- The five newly restored XAUUSD receipts are ordinary Thursday intraday
+  observations; they do not establish a daily break, rollover, weekly close,
+  or reopen.
 - Spread, risk, session, and execution-deviation policies remain in their
   existing provisional states.
 

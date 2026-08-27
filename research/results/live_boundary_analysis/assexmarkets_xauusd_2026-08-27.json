@@ -1,5 +1,5 @@
 {
-  "accepted_receipts": 695,
+  "accepted_receipts": 700,
   "boundary_gap_candidates": [
     {
       "after_server_minus_utc_minutes": null,
@@ -416,23 +416,36 @@
       "boundary_type": "unclassified_long_gap",
       "classification": "boundary_candidate",
       "gap_seconds": 13331.0
+    },
+    {
+      "after_server_minus_utc_minutes": 180,
+      "after_spread_points": 24.0,
+      "after_utc": "2026-08-27T10:29:39+00:00",
+      "after_weekday": "Thursday",
+      "before_server_minus_utc_minutes": 180,
+      "before_spread_points": 29.0,
+      "before_utc": "2026-08-27T09:22:13+00:00",
+      "before_weekday": "Thursday",
+      "boundary_type": "unclassified_long_gap",
+      "classification": "boundary_candidate",
+      "gap_seconds": 4046.0
     }
   ],
   "boundary_gap_classifications": {
-    "boundary_candidate": 22,
+    "boundary_candidate": 23,
     "ordinary_collection_gap": 10
   },
   "database": "data/candidate_006_second_broker/mt5_observations.sqlite3",
-  "database_total_receipts": 695,
+  "database_total_receipts": 700,
   "first_event_utc": "2026-08-26T13:30:08+00:00",
   "instrument": "XAUUSD",
   "largest_observation_gap_seconds": 13331.0,
-  "last_event_utc": "2026-08-27T09:22:13+00:00",
+  "last_event_utc": "2026-08-27T10:31:39+00:00",
   "local_minus_utc_minutes": {
-    "60": 416
+    "60": 421
   },
-  "observation_gaps_over_90_seconds": 32,
-  "provenance_receipts": 416,
+  "observation_gaps_over_90_seconds": 33,
+  "provenance_receipts": 421,
   "schedule_coverage": {
     "daily_break": "not_observed",
     "dst_boundary": "not_observed",
@@ -448,11 +461,11 @@
     "177": 1,
     "178": 1,
     "179": 3,
-    "180": 386
+    "180": 391
   },
   "spread_points": {
     "maximum": 37.0,
     "minimum": 24.0
   },
-  "total_receipts": 695
+  "total_receipts": 700
 }

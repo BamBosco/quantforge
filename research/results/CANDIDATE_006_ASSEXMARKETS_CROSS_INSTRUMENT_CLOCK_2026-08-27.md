@@ -16,8 +16,8 @@ the accepted receipt event time for the fresh receipts considered here.
 
 | Stream | Database | Accepted receipts at analysis | Provenance receipts | Broker server |
 | --- | --- | ---: | ---: | --- |
-| XAUUSD | `data/candidate_006_second_broker/mt5_observations.sqlite3` | 695 | 416 | `AssexmarketsGlobal-Trade` |
-| EURUSD | `data/assexmarkets_eurusd/mt5_observations.sqlite3` | 46 | 46 | `AssexmarketsGlobal-Trade` |
+| XAUUSD | `data/candidate_006_second_broker/mt5_observations.sqlite3` | 700 | 416 | `AssexmarketsGlobal-Trade` |
+| EURUSD | `data/assexmarkets_eurusd/mt5_observations.sqlite3` | 139 | 139 | `AssexmarketsGlobal-Trade` |
 
 The two databases remain separate. No observation was routed through a broker
 order endpoint, and no position or fill is inferred from these quotes.
@@ -26,12 +26,12 @@ order endpoint, and no position or fill is inferred from these quotes.
 
 | Instrument | Exact +180-minute server-minus-UTC result | Within one minute of +180 | Result |
 | --- | ---: | ---: | --- |
-| EURUSD | 46/46 | 46/46 | Uniform current MT5 UTC+3 |
-| XAUUSD | 187/416 | 388/416 | Fresh/current observations support MT5 UTC+3 |
+| EURUSD | 139/139 | 139/139 | Uniform current MT5 UTC+3 |
+| XAUUSD | 391/416 | 391/416 | Fresh/current observations support MT5 UTC+3 |
 
-All 46 EURUSD receipts have a server-minus-UTC offset of exactly 180 minutes;
-their terminal-local-minus-UTC offset is exactly 60 minutes. For XAUUSD, 388
-of 416 receipts are within one minute of +180 minutes, including the current
+All 139 clean EURUSD receipts have a server-minus-UTC offset of exactly 180
+minutes; their terminal-local-minus-UTC offset is exactly 60 minutes. For
+XAUUSD, 391 of 416 receipts are within one minute of +180 minutes, including the current
 healthy run. The remaining 28 receipts occur in an earlier interrupted/stale
 quote interval and range from about +165 to +179 minutes. `TimeCurrent()` is
 the time of the last quote received by the terminal rather than a local clock;
@@ -92,10 +92,11 @@ interpreting it. It does not provide the broker's historic timezone/DST policy.
 
 ## Session and policy effect
 
-- **EURUSD weekly/daily behaviour:** forty-six Thursday intraday receipts span
-  about twenty-four minutes. They confirm quote availability and M1-bar capture but
+- **EURUSD weekly/daily behaviour:** 139 Thursday intraday receipts span about
+  seventy-one minutes. They confirm quote availability and M1-bar capture but
   contain no Friday close, Sunday/Monday open, daily break, rollover, or DST
-  boundary. No weekly/daily schedule conclusion is available yet.
+  boundary. No weekly/daily schedule conclusion is available yet. XAUUSD's
+  five newly restored receipts are likewise ordinary Thursday observations.
 - **XAUUSD session policy:** remains provisional. The UTC+3 hypothesis is now
   cross-instrument corroborated, but the historical DST/export relationship,
   XAUUSD hours, rollover, and holiday calendar are not authoritative.

@@ -78,17 +78,19 @@ Two independent local bridge paths are currently used:
 - Scope: read-only EURUSD M1 broker-infrastructure clock/session evidence only
 - No Candidate 006 audit consumer and no policy transfer to XAUUSD
 - Receiver prepared and health-checked on 2026-08-27. The attached
-  non-submitting EA has produced 120 accepted authenticated EURUSD receipts,
-  all with complete provenance, through 2026-08-27T10:27:18Z. Seven earlier
-  XAUUSD receipts in that database are excluded from EURUSD analysis and
-  retained as contamination evidence.
+  non-submitting EA has produced 139 accepted authenticated EURUSD receipts,
+  all with complete provenance, through 2026-08-27T10:38:12Z. Fifteen
+  preserved XAUUSD receipts in that database are excluded from EURUSD analysis
+  and retained as contamination evidence.
 - The EA is scalar by design (`SymbolToReport` plus one `BridgeUrl`), so
   simultaneous EURUSD/XAUUSD collection requires two charts and two EA
   instances. This preserves exclusive routing and does not weaken the
   read-only boundary.
-- The XAUUSD receiver remains at 695 accepted receipts through 09:22:13Z.
-  Although both EA instances are visibly attached in MT5, no fresh XAUUSD
-  receipt has reached `:8766`; its delivery is not yet runtime-verified.
+- The dedicated XAUUSD receiver recovered and reached 700 accepted receipts
+  through 2026-08-27T10:31:39Z, adding five fresh authenticated receipts with
+  current UTC+3 provenance. The parallel-terminal period also placed fifteen
+  XAUUSD receipts in the EURUSD database; they remain excluded and do not
+  weaken the dedicated XAUUSD evidence isolation.
 
 AssexMarkets must remain separated from the old 8765 log. After the MT5 account switch, the old 8765 database received AssexMarkets receipts and is considered contaminated for post-switch cross-broker comparison. Do not use it as clean AssexMarkets evidence.
 

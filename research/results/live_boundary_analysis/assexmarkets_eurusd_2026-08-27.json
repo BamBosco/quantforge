@@ -1,5 +1,5 @@
 {
-  "accepted_receipts": 43,
+  "accepted_receipts": 139,
   "boundary_gap_candidates": [
     {
       "after_server_minus_utc_minutes": 180,
@@ -19,16 +19,16 @@
     "ordinary_collection_gap": 1
   },
   "database": "data/assexmarkets_eurusd/mt5_observations.sqlite3",
-  "database_total_receipts": 50,
+  "database_total_receipts": 156,
   "first_event_utc": "2026-08-27T09:26:05+00:00",
   "instrument": "EURUSD",
   "largest_observation_gap_seconds": 143.0,
-  "last_event_utc": "2026-08-27T09:48:58+00:00",
+  "last_event_utc": "2026-08-27T10:38:12+00:00",
   "local_minus_utc_minutes": {
-    "60": 43
+    "60": 139
   },
   "observation_gaps_over_90_seconds": 1,
-  "provenance_receipts": 43,
+  "provenance_receipts": 139,
   "schedule_coverage": {
     "daily_break": "not_observed",
     "dst_boundary": "not_observed",
@@ -36,11 +36,11 @@
     "weekly_open_close": "not_observed"
   },
   "server_minus_utc_minutes": {
-    "180": 43
+    "180": 139
   },
   "spread_points": {
     "maximum": 17.0,
     "minimum": 15.0
   },
-  "total_receipts": 43
+  "total_receipts": 139
 }

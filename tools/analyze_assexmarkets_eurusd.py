@@ -16,13 +16,14 @@ def _parse_timestamp(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-def analyze(database: Path) -> dict[str, Any]:
+def analyze(database: Path, instrument: str = "EURUSD") -> dict[str, Any]:
     connection = sqlite3.connect(str(database))
     connection.row_factory = sqlite3.Row
     try:
         rows = connection.execute(
-            "SELECT event_time_utc, payload_json, quality_status "
-            "FROM observation_event ORDER BY id"
+            "SELECT event_time_utc, payload_json, quality_status, broker_symbol "
+            "FROM observation_event WHERE broker_symbol = ? ORDER BY id",
+            (instrument,),
         ).fetchall()
     finally:
         connection.close()
@@ -58,7 +59,9 @@ def analyze(database: Path) -> dict[str, Any]:
     ]
     return {
         "database": str(database),
+        "instrument": instrument,
         "total_receipts": len(rows),
+        "database_total_receipts": connection_total(database),
         "accepted_receipts": len(accepted),
         "provenance_receipts": sum(offsets.values()),
         "first_event_utc": event_times[0].isoformat() if event_times else None,
@@ -80,6 +83,16 @@ def analyze(database: Path) -> dict[str, Any]:
     }
 
 
+def connection_total(database: Path) -> int:
+    connection = sqlite3.connect(str(database))
+    try:
+        return int(
+            connection.execute("SELECT count(*) FROM observation_event").fetchone()[0]
+        )
+    finally:
+        connection.close()
+
+
 def _parse_terminal_time(value: Any) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -94,13 +107,18 @@ def _parse_terminal_time(value: Any) -> datetime | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("database", type=Path)
+    parser.add_argument("--instrument", default="EURUSD")
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
-    result = analyze(args.database)
+    result = analyze(args.database, args.instrument)
     if args.as_json:
         print(json.dumps(result, indent=2, sort_keys=True))
         return
-    print(f"EURUSD accepted receipts: {result['accepted_receipts']}")
+    print(
+        f"{result['instrument']} accepted receipts: "
+        f"{result['accepted_receipts']} "
+        f"(database total: {result['database_total_receipts']})"
+    )
     print(f"Coverage: {result['first_event_utc']} through {result['last_event_utc']}")
     print(f"Server-minus-UTC minutes: {result['server_minus_utc_minutes']}")
     print(f"Local-minus-UTC minutes: {result['local_minus_utc_minutes']}")

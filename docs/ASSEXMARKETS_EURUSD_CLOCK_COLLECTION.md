@@ -77,6 +77,11 @@ PYTHONPATH=src .venv/bin/python tools/analyze_assexmarkets_eurusd.py \
   data/assexmarkets_eurusd/mt5_observations.sqlite3
 ```
 
+The analyzer filters on `broker_symbol=EURUSD`. If a terminal was switched
+between instruments while using the same receiver, excluded receipts remain in
+the database and must be reported as contamination rather than counted as FX
+evidence.
+
 ## Required coverage
 
 Collect fresh accepted receipts at ordinary market periods and, over time,

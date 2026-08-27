@@ -1,0 +1,41 @@
+# Immutable identity and provenance for the full native MT5 Bars export. The
+# CSV was copied byte-for-byte from the terminal's Wine Documents directory.
+# This manifest deliberately records structural timezone inference separately
+# from broker-authoritative timezone documentation.
+[identity]
+dataset_id = "assexmarkets_global_demo_xauusd_m1_20220103_20260814"
+instrument = "XAUUSD"
+filename = "XAUUSD_M1_202201030100_202608141159.csv"
+sha256 = "22d471a693a204c227cfa53ed8798ca983d2699b075e26cc877dcaed2bf35875"
+file_size_bytes = 98618925
+raw_file_preserved_unmodified = true
+
+[provenance]
+source = "MetaTrader 5 native Bars export"
+broker_entity = "Assexmarkets Global Limited"
+server = "AssexmarketsGlobal-Trade"
+account_environment = "Demo Account — Hedge"
+symbol = "XAUUSD"
+timeframe = "M1"
+requested_terminal_start = "2022.01.03 01:00"
+requested_terminal_end = "2026.08.14 11:59"
+# The source file contains terminal wall-clock timestamps only. Structural
+# analysis finds a predominantly UTC+3-aligned pattern, but a 2025 DST-adjacent
+# one-week clock anomaly prevents treating that inference as a UTC conversion.
+terminal_source_timezone = "unresolved_broker_server_time"
+timezone_structure_inference = "predominantly_utc_plus_3_not_normalization_authority"
+price_basis = "not encoded in MT5 Bars CSV; not asserted"
+
+[structural_quality]
+row_count = 1629646
+malformed_rows = 0
+duplicate_timestamps = 0
+invalid_ohlc_rows = 0
+negative_tick_volume_rows = 0
+negative_spread_rows = 0
+terminal_wall_clock_start = "2022-01-03T01:00:00"
+terminal_wall_clock_end = "2026-08-14T11:59:00"
+
+[evidence_boundary]
+supports = ["spread_distribution", "source_clock_session_structure", "bar_replay"]
+does_not_support = ["broker_timezone_authority", "actual_fills", "latency", "rejections", "execution_deviation"]

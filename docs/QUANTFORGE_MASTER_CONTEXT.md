@@ -111,6 +111,13 @@ the current server offset, but not the January-August export's winter offset or
 the broker's DST rule. Historical source-clock hours remain provisional until
 a DST-boundary receipt or broker-authoritative confirmation is captured.
 
+The larger 2022–2026 native export structurally aligns predominantly with
+UTC+3: 235 of 241 weekly first bars are Monday 01:00 source clock. However, it
+contains a one-week 00:00–22:58 reversal from 2025-10-27 through 2025-10-31,
+then returns to the normal 01:00–23:58 span. This is useful DST-adjacent
+research evidence, not authority to normalize timestamps or promote a session
+policy.
+
 ### Execution deviation
 
 🟡 Partially evidenced. One user-authorized AssexMarkets demo round trip was
@@ -166,6 +173,18 @@ The original Mac source is under the MT5 Wine prefix, then copied into the proje
 `data/candidate_006_second_broker/raw/XAUUSD_M1_202601020100_202608141159.csv`
 
 Do not modify the raw CSV.
+
+### Full-history source-clock dataset
+
+The additional full export is frozen at:
+`data/candidate_006_second_broker/raw/XAUUSD_M1_202201030100_202608141159.csv`
+
+- 1,629,646 valid rows, source-clock 2022-01-03 01:00 through 2026-08-14 11:59
+- SHA-256 `22d471a693a204c227cfa53ed8798ca983d2699b075e26cc877dcaed2bf35875`
+- structural validation found no duplicate, malformed, invalid-OHLC,
+  negative-tick-volume, or negative-spread rows
+- no UTC-normalized derivative is authorized; see
+  `research/results/CANDIDATE_006_ASSEXMARKETS_FULL_HISTORY_SOURCE_CLOCK_2026-08-27.md`
 
 ## 7. AssexMarkets broker evidence still needed
 

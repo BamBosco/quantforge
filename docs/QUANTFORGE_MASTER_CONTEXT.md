@@ -113,7 +113,13 @@ a DST-boundary receipt or broker-authoritative confirmation is captured.
 
 ### Execution deviation
 
-Still provisional. Historical bars cannot establish latency, fills, slippage, rejects, request-to-fill price movement, or execution deviation.
+🟡 Partially evidenced. One user-authorized AssexMarkets demo round trip was
+completed: XAUUSD BUY 0.01 opened at 4593.51 at server time 23:49:59, then
+closed at 4592.61 at 23:53:43, with realized P/L of -0.90 USD. MT5 history
+showed tickets 29455831 (position), 29196312 (entry), and 29196594 (exit);
+the post-close receipt showed zero positions and zero margin. This proves one
+broker fill/close outcome, but not latency, request price, retcode, or a
+statistically useful slippage distribution.
 
 ## 6. AssexMarkets historical dataset
 
@@ -195,6 +201,15 @@ receipts spanning 2026-08-26T13:30:08Z through 2026-08-26T20:40:04Z. Twenty-four
 receipts include the EA 1.01 `time_provenance` object; all measured server
 UTC+3, terminal-local UTC+1, and terminal UTC exact. This is ongoing
 observation coverage, not execution-quality evidence.
+
+### Demo execution evidence
+
+The first controlled demo execution was performed manually in MT5 on the
+AssexMarkets demo account. The position was opened and closed at the minimum
+observed volume of 0.01 lots. The screenshot-provided MT5 History record is
+the source for the ticket, price, server-time, and realized-P/L facts above;
+the bridge independently observed the account flat afterward with balance and
+equity at 19,999.10 USD. No production or live-capital execution occurred.
 
 ## 9. AssexMarkets external documentation note
 

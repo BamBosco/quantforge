@@ -56,7 +56,7 @@ at 21:00 GMT+0 applies to XAUUSD.
 | Spread | Research-supported, still provisional | Historical P99.5 30, max 358; require live normal, stressed, rollover and scheduled-news coverage plus owner approval. |
 | Risk / maximum position | Provisional | Observed symbol constraints do not supply a strategy risk budget, actual margin behavior, or owner mandate. |
 | Session | Provisional | No authoritative XAUUSD timezone, DST, hours, rollover, or holiday record. |
-| Execution deviation | Provisional at zero | No request/fill/latency/slippage/rejection evidence; bars and quotes cannot provide it. |
+| Execution deviation | Partially evidenced, still provisional | One manual 0.01-lot demo round trip completed at 4593.51 -> 4592.61 for -$0.90; request price, latency, retcode, and distributional evidence remain unavailable. |
 
 No AssexMarkets policy is production-approved. The Dukascopy 760-point cap
 remains scoped to its own provisional research profile.
@@ -69,5 +69,6 @@ remains scoped to its own provisional research profile.
    terminal server-to-UTC offset. This does not itself prove the historical
    export clock.
 3. Receipt-linked live quote coverage across stated stressed conditions.
-4. Broker-authorized request/fill/rejection evidence before any review of
-   execution deviation. No real order should be sent for this path.
+4. Additional broker-authorized demo request/fill/rejection evidence before any
+   review of execution deviation. The first manual demo round trip is recorded
+   but is insufficient to establish a policy.

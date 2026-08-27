@@ -35,10 +35,13 @@ receipt cadence is too sparse to distinguish an actual metal session break
 from collector downtime. No weekly boundary is observed in either stream.
 No policy is promoted from these candidates.
 
-The `:8766` and `:8767` receiver processes are running. XAUUSD remains stale
-after its last receipt at 09:22:13Z, indicating that its EA is not currently
-posting; restoring it requires reattaching the existing read-only EA to the
-XAUUSD M1 chart in MT5.
+The `:8766` and `:8767` receiver processes are running. The MT5 screenshots
+show both EA instances attached, but runtime verification shows only EURUSD
+posting: EURUSD reached 120 accepted receipts through 10:27:18Z, while XAUUSD
+remains at 695 receipts with its last receipt at 09:22:13Z. Attachment is
+therefore not sufficient evidence of delivery; the XAUUSD EA's WebRequest
+success must be confirmed from a new accepted database receipt. No XAUUSD
+boundary conclusion is drawn from the stale stream.
 
 ## Conclusions
 

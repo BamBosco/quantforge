@@ -70,6 +70,13 @@ broker-infrastructure evidence may establish the current server clock only.
 EURUSD's documented forex trading hours, rollover and GMT+0 wording cannot be
 silently applied to XAUUSD metals or to historical XAUUSD bars.
 
+For a reproducible coverage summary, run:
+
+```zsh
+PYTHONPATH=src .venv/bin/python tools/analyze_assexmarkets_eurusd.py \
+  data/assexmarkets_eurusd/mt5_observations.sqlite3
+```
+
 ## Required coverage
 
 Collect fresh accepted receipts at ordinary market periods and, over time,

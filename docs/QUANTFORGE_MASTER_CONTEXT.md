@@ -115,6 +115,9 @@ Two independent local bridge paths are currently used:
   100,000 EUR with 0.01/0.01/500 volume bounds and displayed notional margin
   tiers of 1x/2x/3x. These are account/server-specific MT5 observations pending
   authenticated read-only receipts, not broker-authoritative policy changes.
+  The planned isolated HFM receivers are `:8768` EURUSD and `:8769` XAUUSD,
+  with databases under `data/hfm_eurusd/` and `data/hfm_xauusd/`; neither
+  attaches a Candidate 006 consumer.
 
 AssexMarkets must remain separated from the old 8765 log. After the MT5 account switch, the old 8765 database received AssexMarkets receipts and is considered contaminated for post-switch cross-broker comparison. Do not use it as clean AssexMarkets evidence.
 

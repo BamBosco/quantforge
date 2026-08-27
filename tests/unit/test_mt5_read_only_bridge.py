@@ -246,6 +246,46 @@ def test_bridge_can_reject_snapshots_for_another_symbol(tmp_path: Path) -> None:
         server.close()
 
 
+def test_hfm_receiver_paths_route_symbols_to_separate_databases(
+    tmp_path: Path,
+) -> None:
+    import sqlite3
+
+    eurusd_database = tmp_path / "hfm_eurusd.sqlite3"
+    xauusd_database = tmp_path / "hfm_xauusd.sqlite3"
+    eurusd_server = create_server(
+        "127.0.0.1", 0, "test-token", eurusd_database, expected_symbol="EURUSD"
+    )
+    xauusd_server = create_server(
+        "127.0.0.1", 0, "test-token", xauusd_database, expected_symbol="XAUUSD"
+    )
+    eurusd_thread = Thread(target=eurusd_server.serve_forever, daemon=True)
+    xauusd_thread = Thread(target=xauusd_server.serve_forever, daemon=True)
+    eurusd_thread.start()
+    xauusd_thread.start()
+    try:
+        eurusd_payload = _payload()
+        eurusd_payload["symbol"] = {**eurusd_payload["symbol"], "name": "EURUSD"}
+        assert _post_snapshot(eurusd_server.server_address[1], eurusd_payload) == 202
+        assert _post_snapshot(xauusd_server.server_address[1], _payload()) == 202
+
+        with sqlite3.connect(eurusd_database) as connection:
+            assert connection.execute(
+                "SELECT broker_symbol, count(*) FROM observation_event "
+                "GROUP BY broker_symbol"
+            ).fetchall() == [("EURUSD", 1)]
+        with sqlite3.connect(xauusd_database) as connection:
+            assert connection.execute(
+                "SELECT broker_symbol, count(*) FROM observation_event "
+                "GROUP BY broker_symbol"
+            ).fetchall() == [("XAUUSD", 1)]
+    finally:
+        eurusd_server.shutdown()
+        eurusd_server.close()
+        xauusd_server.shutdown()
+        xauusd_server.close()
+
+
 def test_bridge_preserves_terminal_clock_provenance(tmp_path: Path) -> None:
     database = tmp_path / "observations.sqlite3"
     server = create_server("127.0.0.1", 0, "test-token", database)

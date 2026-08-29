@@ -95,39 +95,39 @@ class Candidate007Settings:
 
     @classmethod
     def for_gold_active_scalper(cls) -> Candidate007Settings:
-        """Active High-Frequency SMC & Volatility Scalper preset for Gold (XAUUSD)."""
+        """Active High-Frequency Precision Micro-Scalper for Gold (XAUUSD) — up to 250 trades/day."""
         return cls(
             instrument="XAUUSD",
             atr_period=7,
             atr_ma_period=14,
             ema_trend_period=20,
-            breakout_channel_bars=7,
-            structure_bars=3,
-            risk_reward_ratio=Decimal("2.5"),
-            min_stop_distance=Decimal("1.20"),
+            breakout_channel_bars=5,
+            structure_bars=2,
+            risk_reward_ratio=Decimal("1.5"),
+            min_stop_distance=Decimal("1.00"),
             allow_weekend_trading=False,
-            max_trades_per_day=25,
-            cooldown_bars=2,
-            session_start_ny=time(7, 0),
-            session_end_ny=time(16, 0),
-            exit_time_ny=time(16, 30),
+            max_trades_per_day=250,
+            cooldown_bars=1,
+            session_start_ny=time(0, 0),
+            session_end_ny=time(23, 59),
+            exit_time_ny=time(23, 59),
         )
 
     @classmethod
     def for_btcusd_scalper(cls) -> Candidate007Settings:
-        """High-Activity Micro-Scalper preset for BTCUSD with tight SL and far 2.5R TP."""
+        """High-Activity Precision Micro-Scalper for BTCUSD — up to 250 trades/day."""
         return cls(
             instrument="BTCUSD",
-            atr_period=14,
-            atr_ma_period=20,
-            ema_trend_period=30,
-            breakout_channel_bars=15,
-            structure_bars=4,
-            risk_reward_ratio=Decimal("2.5"),
-            min_stop_distance=Decimal("100.0"),
+            atr_period=10,
+            atr_ma_period=15,
+            ema_trend_period=20,
+            breakout_channel_bars=8,
+            structure_bars=3,
+            risk_reward_ratio=Decimal("1.5"),
+            min_stop_distance=Decimal("80.0"),
             allow_weekend_trading=True,
-            max_trades_per_day=15,
-            cooldown_bars=5,
+            max_trades_per_day=250,
+            cooldown_bars=1,
             session_start_ny=time(0, 0),
             session_end_ny=time(23, 59),
             exit_time_ny=time(23, 59),
@@ -135,22 +135,22 @@ class Candidate007Settings:
 
     @classmethod
     def for_xauusd(cls) -> Candidate007Settings:
-        """Optimal settings for XAUUSD Gold weekday trading with Market Structure (1:2.5R)."""
+        """Standard settings for XAUUSD Gold weekday trading with Market Structure."""
         return cls(
             instrument="XAUUSD",
             atr_period=14,
             atr_ma_period=20,
             ema_trend_period=50,
-            breakout_channel_bars=20,
-            structure_bars=5,
-            risk_reward_ratio=Decimal("2.5"),
-            min_stop_distance=Decimal("1.20"),
+            breakout_channel_bars=15,
+            structure_bars=4,
+            risk_reward_ratio=Decimal("1.5"),
+            min_stop_distance=Decimal("1.00"),
             allow_weekend_trading=False,
-            max_trades_per_day=5,
-            cooldown_bars=3,
-            session_start_ny=time(8, 30),
-            session_end_ny=time(16, 30),
-            exit_time_ny=time(17, 0),
+            max_trades_per_day=150,
+            cooldown_bars=1,
+            session_start_ny=time(0, 0),
+            session_end_ny=time(23, 59),
+            exit_time_ny=time(23, 59),
         )
 
 

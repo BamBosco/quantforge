@@ -1190,10 +1190,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
                 order_id = f"qf-{int(time.time()*1000)}"
                 is_btc = "BTC" in sym.upper()
-                # Enhanced breathing room for Gold & Bitcoin to absorb liquidity wicks/pullbacks
-                dist = 320.0 if is_btc else 3.50
-                sl_price = cur_price - dist if side == "buy" else cur_price + dist
-                tp_price = cur_price + (dist * 1.5) if side == "buy" else cur_price - (dist * 1.5)
+                # Asymmetric Risk/Reward: SL is tight & closer to entry (1.0R), TP is far (2.5R)
+                sl_dist = 100.0 if is_btc else 1.20
+                tp_dist = 250.0 if is_btc else 3.00
+                sl_price = cur_price - sl_dist if side == "buy" else cur_price + sl_dist
+                tp_price = cur_price + tp_dist if side == "buy" else cur_price - tp_dist
 
                 now_utc = datetime.now().isoformat()
 
@@ -1226,7 +1227,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "entry_price": cur_price,
                         "stop_loss_price": sl_price,
                         "target_price": tp_price,
-                        "rationale": "Manual Cockpit Execution",
+                        "rationale": "Manual Cockpit Execution (Tight SL : 2.5R TP)",
                     }
                     ch1 = hashlib.sha256(json.dumps(intent_payload).encode()).hexdigest()
                     conn.execute(
@@ -1247,13 +1248,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         (f"risk-{order_id}", "RiskDecisionRecorded", 1, now_utc, order_id, f"intent-{order_id}", json.dumps(risk_payload), ch2),
                     )
 
-                    # Fill execution
+                    # Fill execution with SL and TP
                     fill_payload = {
                         "order_id": order_id,
                         "instrument": sym,
                         "side": side,
                         "quantity": qty,
                         "price": cur_price,
+                        "stop_loss_price": sl_price,
+                        "target_price": tp_price,
                         "fee": 0.05,
                         "status": "filled",
                     }
@@ -1557,6 +1560,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                 "side": side,
                                 "quantity": qty,
                                 "open_price": p_price,
+                                "stop_loss_price": float(payload.get("stop_loss_price") or 0.0),
+                                "target_price": float(payload.get("target_price") or 0.0),
                                 "opened_at": occurred_at_utc,
                             }
                         elif st in {"stopped_out", "target_reached", "forced_exit", "breakeven"}:
@@ -1613,35 +1618,110 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "opened_at": str(mt5_p.get("time_utc", datetime.now().isoformat())),
                     }
 
-        # Calculate floating PnL on open positions using live quotes
+        # Calculate floating PnL on open positions using live quotes & execute automated exits
         floating_pnl = 0.0
         active_positions_list = []
         cur_bid = live_quote["bid"] if live_quote else 0.0
         cur_ask = live_quote["ask"] if live_quote else 0.0
+        now_eval_utc = datetime.now().isoformat()
+        positions_to_close = []
 
-        for pos in open_positions.values():
+        for pos in list(open_positions.values()):
             cp = cur_bid if pos["side"] == "buy" else cur_ask
+            qty = pos.get("quantity", 0.01)
+            ep = pos.get("open_price", 0.0)
+            is_btc = "BTC" in pos.get("instrument", "").upper()
+
             if "profit" in pos and pos.get("profit") is not None and pos["profit"] != 0.0:
                 pos_pnl = float(pos["profit"])
-            elif cp > 0 and pos.get("open_price", 0.0) > 0:
-                pos_pnl = (cp - pos["open_price"]) * pos["quantity"] if pos["side"] == "buy" else (pos["open_price"] - cp) * pos["quantity"]
+            elif cp > 0 and ep > 0:
+                pos_pnl = (cp - ep) * qty if pos["side"] == "buy" else (ep - cp) * qty
             else:
                 pos_pnl = 0.0
+
             floating_pnl += pos_pnl
             pos_copy = dict(pos)
             pos_copy["floating_pnl"] = pos_pnl
             pos_copy["current_price"] = cp
-            
-            # Check dynamic Breakeven activation status with Positive Profit Offset
-            ep = pos.get("open_price", 0.0)
-            is_btc = "BTC" in pos.get("instrument", "").upper()
-            be_thresh = 160.0 if is_btc else 1.80 # Activate once price is +$160 on BTC (0.5R) / +$1.80 on Gold
-            be_buffer = 30.0 if is_btc else 0.40 # Lock in positive profit past entry point!
+
+            # Sensible Profit & Positive Breakeven thresholds (Tight SL : 2.5R TP)
+            # Gold: $0.50 (5 pips) activates +0.35 positive breakeven, $1.00+ banks profit
+            # BTC: $45.0 activates +$15.0 positive breakeven, $2.00+ banks profit
+            be_thresh = 45.0 if is_btc else 0.50
+            be_buffer = 15.0 if is_btc else 0.35
+            sensible_profit_target = 2.00 if is_btc else 1.00
+
+            sl_dist = 100.0 if is_btc else 1.20
+            tp_dist = 250.0 if is_btc else 3.00
+            sl_p = float(pos.get("stop_loss_price") or (ep - sl_dist if pos["side"] == "buy" else ep + sl_dist))
+            tp_p = float(pos.get("target_price") or (ep + tp_dist if pos["side"] == "buy" else ep - tp_dist))
+
+            pos_copy["stop_loss_price"] = sl_p
+            pos_copy["target_price"] = tp_p
+
             is_be = (cp - ep >= be_thresh) if pos["side"] == "buy" else (ep - cp >= be_thresh) if ep > 0 else False
             pos_copy["breakeven_active"] = is_be
             pos_copy["breakeven_price"] = (ep + be_buffer) if pos["side"] == "buy" else (ep - be_buffer)
-            
-            active_positions_list.append(pos_copy)
+
+            # Auto-Exit Check: Sensible Profit Milestone / TP / Positive BE / SL
+            if cp > 0 and ep > 0:
+                if (pos["side"] == "buy" and cp >= tp_p) or (pos["side"] == "sell" and cp <= tp_p) or (pos_pnl >= sensible_profit_target):
+                    positions_to_close.append((pos, "target_reached", "Sensible Profit / Target Reached (+Gain Locked)", cp))
+                elif is_be and ((pos["side"] == "buy" and cp <= ep + be_buffer) or (pos["side"] == "sell" and cp >= ep - be_buffer)):
+                    positions_to_close.append((pos, "breakeven", "Positive Breakeven Hit (+Profit Protected)", cp))
+                elif (pos["side"] == "buy" and cp <= sl_p) or (pos["side"] == "sell" and cp >= sl_p):
+                    positions_to_close.append((pos, "stopped_out", "Protective Stop Loss", cp))
+                else:
+                    active_positions_list.append(pos_copy)
+            else:
+                active_positions_list.append(pos_copy)
+
+        # Execute automated closures into SQLite Journal
+        if positions_to_close and JOURNAL_DB.exists():
+            try:
+                import hashlib
+                conn = sqlite3.connect(JOURNAL_DB)
+                with conn:
+                    for p_obj, st_reason, reason_desc, exit_p in positions_to_close:
+                        oid = p_obj["order_id"]
+                        exit_payload = {
+                            "order_id": oid,
+                            "instrument": p_obj.get("instrument", "BTCUSDm"),
+                            "side": "sell" if p_obj["side"] == "buy" else "buy",
+                            "quantity": p_obj.get("quantity", 0.01),
+                            "price": exit_p,
+                            "fee": 0.05,
+                            "status": st_reason,
+                            "reason": reason_desc,
+                        }
+                        ch = hashlib.sha256(json.dumps(exit_payload).encode()).hexdigest()
+                        conn.execute(
+                            "INSERT OR IGNORE INTO event_journal (event_id, event_type, schema_version, occurred_at_utc, correlation_id, causation_id, payload_json, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            (f"exit-{oid}-{int(time.time()*1000)}", "ExecutionOutcomeRecorded", 1, now_eval_utc, oid, None, json.dumps(exit_payload), ch),
+                        )
+                conn.close()
+
+                # Dispatch instant alert via Telegram
+                try:
+                    from quantforge.infrastructure.notifications.telegram_notifier import get_default_notifier
+                    notifier = get_default_notifier()
+                    for p_obj, st_reason, reason_desc, exit_p in positions_to_close:
+                        ep = p_obj.get("open_price", 0.0)
+                        qty = p_obj.get("quantity", 0.01)
+                        pnl = (exit_p - ep) * qty if p_obj["side"] == "buy" else (ep - exit_p) * qty
+                        pnl_sign = "+" if pnl >= 0 else ""
+                        msg = (
+                            f"⚡ <b>Automated Position Exit ({reason_desc})</b>\n\n"
+                            f"📌 <b>Symbol:</b> <code>{p_obj.get('instrument', 'XAUUSD')}</code>\n"
+                            f"🎯 <b>Status:</b> <code>{st_reason.upper()}</code>\n"
+                            f"💰 <b>Net PnL:</b> <code>{pnl_sign}${pnl:.2f}</code>\n"
+                            f"📊 <b>Exit Price:</b> <code>{exit_p:.2f}</code>"
+                        )
+                        notifier.send_message(msg)
+                except Exception:
+                    pass
+            except Exception:
+                pass
 
         initial_cash = 30.0
         current_cash = initial_cash + realized_pnl

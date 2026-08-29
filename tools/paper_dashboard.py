@@ -262,6 +262,39 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       font-size: 0.88rem;
     }
 
+    /* Toast Notification Container */
+    #toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+    .toast-item {
+      background: rgba(15, 23, 42, 0.96);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-card);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      pointer-events: auto;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transform: translateX(60px);
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .toast-item.toast-success { border-color: #10b981; }
+    .toast-item.toast-error { border-color: #ef4444; }
+    .toast-item.toast-info { border-color: #3b82f6; }
+
     /* Mobile Responsive Optimizations */
     @media (max-width: 900px) {
       body { flex-direction: column; }
@@ -1016,6 +1049,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }
     }
 
+    function showToast(msg, type = 'info') {
+      let container = document.getElementById('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.className = `toast-item toast-${type}`;
+      toast.innerHTML = msg;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.transform = 'translateX(0)'; toast.style.opacity = '1'; }, 10);
+      setTimeout(() => {
+        toast.style.transform = 'translateX(60px)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
     async function executeTrade(side) {
       try {
         if (side === 'buy') playBuySound();
@@ -1028,12 +1080,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const res = await resp.json();
         if (res.success) {
           playFillSound();
+          showToast(`🟢 <b>${side.toUpperCase()} 0.01 Lot Executed</b> @ Market`, 'success');
           fetchState();
         } else {
-          alert('Execution rejected: ' + (res.error || 'Unknown error'));
+          showToast(`⚠️ Execution rejected: ${res.error || 'Check risk limits'}`, 'error');
         }
       } catch (err) {
-        alert('Network error executing trade: ' + err);
+        showToast(`❌ Network error: ${err}`, 'error');
       }
     }
 
@@ -1041,14 +1094,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       try {
         const resp = await fetch('/api/close_all', { method: 'POST' });
         const res = await resp.json();
-        if (res.success) {
+        if (res.success && res.closed_count > 0) {
           playFillSound();
+          const sign = res.realized_pnl >= 0 ? '+' : '';
+          showToast(`🏁 Closed ${res.closed_count} position(s) (${sign}$${res.realized_pnl.toFixed(2)})`, 'success');
           fetchState();
         } else {
-          alert('Failed to close position: ' + (res.error || 'No open position'));
+          showToast('ℹ️ No open positions to close', 'info');
         }
       } catch (err) {
-        alert('Error closing position: ' + err);
+        showToast(`❌ Error closing positions: ${err}`, 'error');
       }
     }
 
@@ -1056,15 +1111,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       try {
         const resp = await fetch('/api/close_profit', { method: 'POST' });
         const res = await resp.json();
-        if (res.success) {
+        if (res.success && res.closed_count > 0) {
           playFillSound();
-          alert(`💰 Profit Banked! Closed ${res.closed_count} position(s) with net profit of +$${res.realized_pnl.toFixed(2)}`);
+          showToast(`💰 <b>Profit Banked!</b> Closed ${res.closed_count} position(s) (+${res.realized_pnl.toFixed(2)})`, 'success');
           fetchState();
         } else {
-          alert(res.error || 'No open positions currently in profit.');
+          showToast('ℹ️ No open positions currently in profit', 'info');
         }
       } catch (err) {
-        alert('Error closing in profit: ' + err);
+        showToast(`❌ Error closing profit: ${err}`, 'error');
       }
     }
 
@@ -1073,26 +1128,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const resp = await fetch('/api/test_telegram', { method: 'POST' });
         const res = await resp.json();
         if (res.success) {
-          alert('📱 Telegram alert dispatched to @bamquantforgebot!');
+          showToast('📱 Telegram alert dispatched to @bamquantforgebot!', 'success');
         } else {
-          alert('Telegram error: ' + (res.error || 'Not configured'));
+          showToast(`⚠️ Telegram error: ${res.error || 'Not configured'}`, 'error');
         }
       } catch (err) {
-        alert('Error contacting Telegram: ' + err);
+        showToast(`❌ Error contacting Telegram: ${err}`, 'error');
       }
     }
 
     async function resetJournal() {
-      if (!confirm("Are you sure you want to reset the paper journal and start fresh?")) return;
       try {
         const resp = await fetch('/api/reset_journal', { method: 'POST' });
         const res = await resp.json();
         if (res.success) {
-          alert("Paper journal and live bridge reset successfully!");
+          showToast('🔄 <b>All Positions Closed & Reset to $30.00!</b>', 'success');
           fetchState();
         }
       } catch (e) {
-        alert("Failed to reset journal: " + e);
+        showToast(`❌ Failed to reset journal: ${e}`, 'error');
       }
     }
 
@@ -1126,6 +1180,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/reset_journal":
             try:
+                global PRICE_HISTORY, SNAPSHOT_COUNT, TICK_COUNT, START_TIME
+                PRICE_HISTORY = []
+                SNAPSHOT_COUNT = 0
+                TICK_COUNT = 0
+                START_TIME = time.time()
+
                 if JOURNAL_DB.exists():
                     conn = sqlite3.connect(JOURNAL_DB)
                     conn.execute("DELETE FROM event_journal;")
@@ -1145,7 +1205,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+                self.wfile.write(json.dumps({"success": True, "message": "All positions closed & session reset to $30.00"}).encode("utf-8"))
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")
@@ -1315,67 +1375,56 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         elif parsed.path == "/api/close_all":
             try:
+                state = self.get_state()
+                open_pos_list = state.get("open_positions", [])
                 closed_count = 0
                 total_realized = 0.0
-                if JOURNAL_DB.exists():
-                    conn = sqlite3.connect(JOURNAL_DB)
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT sequence, event_type, payload_json FROM event_journal ORDER BY sequence ASC")
-                    rows = cursor.fetchall()
-                    open_pos = {}
-                    for seq, et, p_json in rows:
-                        p = json.loads(p_json)
-                        if et == "ExecutionOutcomeRecorded":
-                            st = p.get("status")
-                            oid = p.get("order_id")
-                            if st == "filled":
-                                open_pos[oid] = p
-                            elif st in {"stopped_out", "target_reached", "forced_exit"} and oid in open_pos:
-                                open_pos.pop(oid, None)
 
+                if open_pos_list and JOURNAL_DB.exists():
+                    conn = sqlite3.connect(JOURNAL_DB)
                     now_utc = datetime.now().isoformat()
                     import hashlib
-                    for oid, pos in open_pos.items():
-                        side = pos.get("side", "buy")
-                        qty = float(pos.get("quantity", 0.01))
-                        ep = float(pos.get("price", 0.0))
-                        cp = LAST_BID if side == "buy" else LAST_ASK
-                        if cp <= 0:
-                            cp = ep
-                        pnl = (cp - ep) * qty if side == "buy" else (ep - cp) * qty
-                        total_realized += pnl
-
-                        exit_payload = {
-                            "order_id": oid,
-                            "instrument": pos.get("instrument", "BTCUSDm"),
-                            "side": side,
-                            "quantity": qty,
-                            "price": cp,
-                            "fee": 0.05,
-                            "status": "forced_exit",
-                            "reason": "Manual Close / Profit Lock",
-                        }
-                        ch = hashlib.sha256(json.dumps(exit_payload).encode()).hexdigest()
-                        conn.execute(
-                            "INSERT OR IGNORE INTO event_journal (event_id, event_type, schema_version, occurred_at_utc, correlation_id, causation_id, payload_json, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                            (f"exit-{oid}-{int(time.time()*1000)}", "ExecutionOutcomeRecorded", 1, now_utc, oid, None, json.dumps(exit_payload), ch),
-                        )
-                        closed_count += 1
-                    conn.commit()
+                    with conn:
+                        for pos in open_pos_list:
+                            oid = str(pos.get("order_id", ""))
+                            if not oid:
+                                continue
+                            pnl = float(pos.get("floating_pnl", 0.0))
+                            total_realized += pnl
+                            cp = float(pos.get("current_price", LAST_BID))
+                            exit_payload = {
+                                "order_id": oid,
+                                "instrument": pos.get("instrument", "BTCUSDm"),
+                                "side": "sell" if pos.get("side") == "buy" else "buy",
+                                "quantity": float(pos.get("quantity", 0.01)),
+                                "price": cp,
+                                "fee": 0.05,
+                                "status": "forced_exit",
+                                "reason": "Manual Close All",
+                            }
+                            ch = hashlib.sha256(json.dumps(exit_payload).encode()).hexdigest()
+                            conn.execute(
+                                "INSERT OR IGNORE INTO event_journal (event_id, event_type, schema_version, occurred_at_utc, correlation_id, causation_id, payload_json, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                (f"exit-{oid}-{int(time.time()*1000)}", "ExecutionOutcomeRecorded", 1, now_utc, oid, None, json.dumps(exit_payload), ch),
+                            )
+                            closed_count += 1
                     conn.close()
 
                 if closed_count > 0:
-                    notifier = TelegramNotifier()
-                    sign = "+" if total_realized >= 0 else ""
-                    notifier.send_message(
-                        f"🏁 <b>QuantForge Position Closed</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"Positions Closed : <b>{closed_count}</b>\n"
-                        f"Realized PnL     : <b>{sign}${total_realized:,.2f}</b>\n"
-                        f"Status           : <b>All Positions Flat</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━━━━\n<i>Manual Exit Recorded</i>",
-                        async_send=False,
-                    )
+                    try:
+                        notifier = TelegramNotifier()
+                        sign = "+" if total_realized >= 0 else ""
+                        notifier.send_message(
+                            f"🏁 <b>QuantForge Position Closed</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"Positions Closed : <b>{closed_count}</b>\n"
+                            f"Realized PnL     : <b>{sign}${total_realized:,.2f}</b>\n"
+                            f"Status           : <b>All Positions Flat</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n<i>Manual Close All Recorded</i>",
+                            async_send=False,
+                        )
+                    except Exception:
+                        pass
 
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -1389,43 +1438,30 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         elif parsed.path == "/api/close_profit":
             try:
+                state = self.get_state()
+                open_pos_list = state.get("open_positions", [])
                 closed_count = 0
                 total_realized = 0.0
-                if JOURNAL_DB.exists():
-                    conn = sqlite3.connect(JOURNAL_DB)
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT sequence, event_type, payload_json FROM event_journal ORDER BY sequence ASC")
-                    rows = cursor.fetchall()
-                    open_pos = {}
-                    for seq, et, p_json in rows:
-                        p = json.loads(p_json)
-                        if et == "ExecutionOutcomeRecorded":
-                            st = p.get("status")
-                            oid = p.get("order_id")
-                            if st == "filled":
-                                open_pos[oid] = p
-                            elif st in {"stopped_out", "target_reached", "forced_exit"} and oid in open_pos:
-                                open_pos.pop(oid, None)
 
+                profit_pos_list = [p for p in open_pos_list if float(p.get("floating_pnl", 0.0)) > 0.0]
+
+                if profit_pos_list and JOURNAL_DB.exists():
+                    conn = sqlite3.connect(JOURNAL_DB)
                     now_utc = datetime.now().isoformat()
                     import hashlib
-                    for oid, pos in open_pos.items():
-                        side = pos.get("side", "buy")
-                        qty = float(pos.get("quantity", 0.01))
-                        ep = float(pos.get("price", 0.0))
-                        cp = LAST_BID if side == "buy" else LAST_ASK
-                        if cp <= 0:
-                            cp = ep
-                        pnl = (cp - ep) * qty if side == "buy" else (ep - cp) * qty
-                        
-                        # ONLY close if strictly in positive profit
-                        if pnl > 0:
+                    with conn:
+                        for pos in profit_pos_list:
+                            oid = str(pos.get("order_id", ""))
+                            if not oid:
+                                continue
+                            pnl = float(pos.get("floating_pnl", 0.0))
                             total_realized += pnl
+                            cp = float(pos.get("current_price", LAST_BID))
                             exit_payload = {
                                 "order_id": oid,
                                 "instrument": pos.get("instrument", "BTCUSDm"),
-                                "side": side,
-                                "quantity": qty,
+                                "side": "sell" if pos.get("side") == "buy" else "buy",
+                                "quantity": float(pos.get("quantity", 0.01)),
                                 "price": cp,
                                 "fee": 0.05,
                                 "status": "forced_exit",
@@ -1437,29 +1473,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                 (f"exit-{oid}-{int(time.time()*1000)}", "ExecutionOutcomeRecorded", 1, now_utc, oid, None, json.dumps(exit_payload), ch),
                             )
                             closed_count += 1
-                    conn.commit()
                     conn.close()
 
                 if closed_count > 0:
-                    notifier = TelegramNotifier()
-                    notifier.send_message(
-                        f"💰 <b>QuantForge Profit Lock Activated!</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                        f"Positions Closed : <b>{closed_count}</b>\n"
-                        f"Banked Gain      : <b>+${total_realized:,.2f}</b>\n"
-                        f"Status           : <b>Profits Banked into Cash</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━━━━━━━━\n<i>Early Profit Lock Complete</i>",
-                        async_send=False,
-                    )
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": True, "closed_count": closed_count, "realized_pnl": total_realized}).encode("utf-8"))
-                else:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({"success": False, "error": "No open positions currently in profit."}).encode("utf-8"))
+                    try:
+                        notifier = TelegramNotifier()
+                        notifier.send_message(
+                            f"💰 <b>QuantForge Profit Lock Activated!</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                            f"Positions Closed : <b>{closed_count}</b>\n"
+                            f"Banked Gain      : <b>+${total_realized:,.2f}</b>\n"
+                            f"Status           : <b>Profits Banked into Cash</b>\n"
+                            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n<i>Early Profit Lock Complete</i>",
+                            async_send=False,
+                        )
+                    except Exception:
+                        pass
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True, "closed_count": closed_count, "realized_pnl": total_realized}).encode("utf-8"))
             except Exception as e:
                 self.send_response(500)
                 self.send_header("Content-Type", "application/json")

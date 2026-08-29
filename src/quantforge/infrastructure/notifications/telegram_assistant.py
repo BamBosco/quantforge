@@ -313,7 +313,12 @@ class TelegramAIAssistant:
             },
         }
 
-        models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"]
+        models = [
+            "gemini-flash-latest",
+            "gemini-2.5-flash",
+            "gemini-flash-lite-latest",
+            "gemini-pro-latest",
+        ]
         for model in models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             try:
@@ -323,7 +328,9 @@ class TelegramAIAssistant:
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=12) as resp:
+                with urllib.request.urlopen(
+                    req, context=self._ssl_ctx, timeout=12
+                ) as resp:
                     if resp.status == 200:
                         res_data = json.loads(resp.read().decode("utf-8"))
                         candidates = res_data.get("candidates", [])

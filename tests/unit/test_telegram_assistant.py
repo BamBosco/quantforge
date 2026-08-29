@@ -11,7 +11,8 @@ from quantforge.infrastructure.notifications.telegram_notifier import TelegramCo
 
 
 @pytest.fixture
-def mock_assistant(tmp_path: Path) -> TelegramAIAssistant:
+def mock_assistant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TelegramAIAssistant:
+    monkeypatch.setattr(TelegramAIAssistant, "query_gemini_ai", lambda self, text, user_name, ctx, chat_id: None)
     config = TelegramConfig(
         bot_token="test_token_123", chat_id="5386759666", enabled=True
     )
@@ -159,8 +160,9 @@ def test_conversational_ai_risk_safety(mock_assistant: TelegramAIAssistant) -> N
 
 
 def test_conversational_ai_quantforge_knowledge_disclosure(
-    mock_assistant: TelegramAIAssistant,
+    mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(mock_assistant, "_get_gemini_api_key", lambda: None)
     reply = mock_assistant.process_incoming_message(
         "5386759666", "tell me about quantforge", user_name="Bamidele"
     )

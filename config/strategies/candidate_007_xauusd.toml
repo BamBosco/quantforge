@@ -1,0 +1,29 @@
+# Candidate 007 Strategy Configuration
+[identity]
+strategy_id = "candidate_007_volatility_regime_trend"
+version = "0.1"
+trading_mode = "research"
+
+[instrument]
+symbol = "XAUUSD"
+
+[parameters]
+atr_period = 14
+atr_ma_period = 50
+ema_trend_period = 50
+breakout_channel_bars = 20
+risk_reward_ratio = "2.0"
+min_stop_distance = "1.5"
+
+[session]
+timezone = "America/New_York"
+session_start_ny = "08:30"
+session_end_ny = "12:30"
+exit_time_ny = "13:30"
+
+[backtest_cost_sensitivity]
+scenarios = [
+  { name = "recorded_spread_only", additional_slippage_points = "0" },
+  { name = "plus_1_point", additional_slippage_points = "1" },
+  { name = "plus_3_points", additional_slippage_points = "3" },
+]

@@ -1,0 +1,1101 @@
+#!/usr/bin/env python3
+"""QuantForge Studio — Ultra-Clean Minimalist SPA Dashboard with Mobile Optimization.
+
+Features:
+- Mobile-responsive layout (desktop sidebar + mobile bottom nav).
+- Perfect Clean Reset (restores exactly $30.00 Base Equity and 0 session PnL).
+- Fast animated tick streaming.
+"""
+
+from __future__ import annotations
+
+import collections
+import json
+import os
+import sqlite3
+import subprocess
+import sys
+import threading
+import time
+import urllib.request
+from datetime import datetime
+from decimal import Decimal
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, urlparse
+
+from quantforge.infrastructure.notifications.telegram_notifier import (
+    TelegramConfig,
+    TelegramNotifier,
+)
+
+# Configuration & Paths
+PORT = 8080
+JOURNAL_DB = Path("data/paper_mode/candidate_007_paper.sqlite3")
+TELEGRAM_CONFIG_FILE = Path("config/telegram_config.json")
+BRIDGE_LATEST_URL = "http://127.0.0.1:8765/v1/mt5/latest"
+BRIDGE_RESET_URL = "http://127.0.0.1:8765/v1/mt5/reset"
+BRIDGE_TOKEN = "quantforge-live-token-2026"
+
+PRICE_HISTORY: collections.deque[dict[str, Any]] = collections.deque(maxlen=180)
+SNAPSHOT_COUNT = 0
+LAST_BID = 0.0
+LAST_ASK = 0.0
+TICK_COUNT = 0
+START_TIME = time.time()
+INITIAL_BALANCE = 30.0
+
+
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QuantForge Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-base: #07090e;
+      --bg-surface: #0e131f;
+      --bg-card: #141b2d;
+      --bg-card-hover: #1c263f;
+      --border-main: rgba(255, 255, 255, 0.07);
+      --border-card: #1f2940;
+      --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.3);
+      --accent-green: #10b981;
+      --accent-green-bg: rgba(16, 185, 129, 0.1);
+      --accent-red: #f43f5e;
+      --accent-red-bg: rgba(244, 63, 94, 0.1);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 230px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-card);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 1.5rem 1rem;
+      flex-shrink: 0;
+    }
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0 0.5rem 1.5rem 0.5rem;
+      border-bottom: 1px solid var(--border-main);
+    }
+    .brand-icon {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 1.1rem; color: white;
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
+    .brand-name { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; }
+    .brand-tag { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+
+    .nav-list { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 1.5rem; }
+    .nav-item {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.15s ease;
+    }
+    .nav-item:hover { color: var(--text-main); background: var(--bg-card); }
+    .nav-item.active {
+      color: white;
+      background: var(--primary);
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
+    .nav-badge {
+      background: rgba(255, 255, 255, 0.15);
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 9999px;
+      font-family: var(--font-mono);
+    }
+
+    /* Main Content Wrapper */
+    .main-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      height: 100vh;
+    }
+
+    /* Topbar */
+    .topbar {
+      background: rgba(14, 19, 31, 0.75);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 0.85rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 1.5rem; }
+    .page-title { font-size: 1.1rem; font-weight: 700; }
+
+    .topbar-stats { display: flex; align-items: center; gap: 2rem; }
+    .stat-pill { display: flex; flex-direction: column; }
+    .stat-pill-label { font-size: 0.68rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; }
+    .stat-pill-val { font-family: var(--font-mono); font-weight: 700; font-size: 1rem; }
+
+    .topbar-actions { display: flex; align-items: center; gap: 0.75rem; }
+    .badge-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 9999px; font-size: 0.72rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .badge-live { background: var(--accent-green-bg); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.25); }
+    .badge-waiting { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.25); }
+    .badge-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(1.4); } 100% { opacity: 1; transform: scale(1); } }
+
+    button, .btn {
+      background: var(--bg-card); color: var(--text-main);
+      border: 1px solid var(--border-card); padding: 7px 13px;
+      border-radius: 8px; font-weight: 600; font-size: 0.8rem;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+      text-decoration: none; transition: all 0.15s ease;
+    }
+    button:hover, .btn:hover { background: var(--bg-card-hover); border-color: var(--primary); }
+    .btn-danger { background: var(--accent-red-bg); color: var(--accent-red); border-color: rgba(244, 63, 94, 0.25); }
+    .btn-danger:hover { background: rgba(244, 63, 94, 0.2); }
+
+    /* Content Body */
+    .content-body {
+      padding: 1.75rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      max-width: 1440px;
+      width: 100%;
+    }
+    .page-view {
+      display: none;
+      flex-direction: column;
+      gap: 1.5rem;
+      animation: fadeIn 0.2s ease forwards;
+    }
+    .page-view.active { display: flex; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Panels & Cards */
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; }
+    .panel-title { font-weight: 700; font-size: 0.98rem; display: flex; align-items: center; gap: 8px; }
+
+    .chart-container { height: 320px; width: 100%; position: relative; }
+    .cockpit-split { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+
+    .feed-list { overflow-y: auto; max-height: 280px; display: flex; flex-direction: column; gap: 0.5rem; }
+    .feed-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-main);
+      border-radius: 9px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .feed-meta { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim); }
+    .feed-title { font-weight: 700; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; }
+    .feed-detail { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+    th { padding: 10px 14px; color: var(--text-dim); font-weight: 700; border-bottom: 1px solid var(--border-card); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 12px 14px; border-bottom: 1px solid var(--border-main); font-family: var(--font-mono); }
+    .badge-buy { background: var(--accent-green-bg); color: var(--accent-green); padding: 3px 8px; border-radius: 5px; font-weight: 700; font-size: 0.72rem; }
+    .badge-sell { background: var(--accent-red-bg); color: var(--accent-red); padding: 3px 8px; border-radius: 5px; font-weight: 700; font-size: 0.72rem; }
+    .profit-pos { color: var(--accent-green); font-weight: 700; }
+    .profit-neg { color: var(--accent-red); font-weight: 700; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+    .form-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .form-input {
+      background: var(--bg-card); border: 1px solid var(--border-card);
+      border-radius: 9px; padding: 11px 14px; color: white; font-family: var(--font-mono);
+      font-size: 0.88rem;
+    }
+
+    /* Mobile Responsive Optimizations */
+    @media (max-width: 900px) {
+      body { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-card);
+        padding: 0.75rem 1rem;
+      }
+      .brand-box { padding: 0 0 0.5rem 0; }
+      .nav-list {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        padding-bottom: 0.25rem;
+      }
+      .nav-item { padding: 8px 12px; font-size: 0.8rem; white-space: nowrap; }
+      .main-wrapper { height: auto; }
+      .topbar { flex-direction: column; gap: 0.75rem; padding: 1rem; align-items: flex-start; }
+      .topbar-stats { flex-wrap: wrap; gap: 1rem; }
+      .content-body { padding: 1rem; }
+      .cockpit-split { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div>
+      <div class="brand-box">
+        <div class="brand-icon">QF</div>
+        <div>
+          <div class="brand-name">QuantForge</div>
+          <div class="brand-tag">SMC Trading Bot</div>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <a href="#/cockpit" class="nav-item" id="nav-cockpit">
+          <span>📊 Live Cockpit</span>
+        </a>
+        <a href="#/positions" class="nav-item" id="nav-positions">
+          <span>⚡ Positions</span>
+          <span class="nav-badge" id="txt-nav-pos-count">0</span>
+        </a>
+        <a href="#/strategy" class="nav-item" id="nav-strategy">
+          <span>📈 Strategy & SMC</span>
+        </a>
+        <a href="#/risk" class="nav-item" id="nav-risk">
+          <span>🛡️ Risk Controls</span>
+        </a>
+        <a href="#/journal" class="nav-item" id="nav-journal">
+          <span>📖 Trade Journal</span>
+        </a>
+        <a href="#/bridge" class="nav-item" id="nav-bridge">
+          <span>⚙️ MT5 & Telegram</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Bottom Info (Hidden on Mobile) -->
+    <div style="padding-top: 1rem; border-top: 1px solid var(--border-main);" class="hide-mobile">
+      <div style="font-size: 0.72rem; color: var(--text-dim); font-weight: 700; text-transform: uppercase; margin-bottom: 4px;">TARGET ASSET</div>
+      <div style="font-family: var(--font-mono); font-weight: 700; color: #60a5fa; font-size: 0.9rem;">XAUUSD (Gold)</div>
+      <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">M1 • New York Session</div>
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <main class="main-wrapper">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="page-title" id="txt-page-title">Live Trading Cockpit</div>
+      </div>
+
+      <div class="topbar-stats">
+        <div class="stat-pill">
+          <span class="stat-pill-label">Live Price</span>
+          <span class="stat-pill-val" id="val-price" style="color: #60a5fa;">$0.00</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">Account Equity</span>
+          <span class="stat-pill-val" id="val-equity" style="color: var(--accent-green);">$30.00</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">Total Session PnL</span>
+          <span class="stat-pill-val" id="val-pnl" style="color: var(--text-muted);">+$0.00</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">Active Trade</span>
+          <span class="stat-pill-val" id="val-positions-count" style="color: #fbbf24;">0 Open</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div id="badge-connection" class="badge-status badge-waiting"><div class="badge-pulse" style="background:#f59e0b;"></div> MT5 Connecting...</div>
+        <button id="btn-audio" onclick="toggleAudio()">🔊 Sound</button>
+        <button class="btn-danger" onclick="resetJournal()">🔄 Reset</button>
+      </div>
+    </header>
+
+    <div class="content-body">
+      <!-- ROUTE 1: /#/cockpit -->
+      <div id="view-cockpit" class="page-view">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>📈 Real-Time Price Action (<span id="txt-chart-symbol">#BTCUSD</span>)</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="txt-spread" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">Spread: $0.00</span>
+              <span id="txt-tick-velocity" class="badge-status" style="background: rgba(59, 130, 246, 0.1); color: var(--primary);">⚡ 0.0 ticks/s</span>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="priceChart"></canvas>
+          </div>
+        </div>
+
+        <div class="cockpit-split">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">⚡ Active Trade Position</div>
+              <div id="badge-floating-pnl" class="badge-status" style="background: rgba(255,255,255,0.05); font-family: var(--font-mono);">Floating: +$0.00</div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Side</th>
+                  <th>Lots</th>
+                  <th>Entry Price</th>
+                  <th>Mark Price</th>
+                  <th>Floating PnL</th>
+                </tr>
+              </thead>
+              <tbody id="quick-positions-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No open position. Scanning market for SMC breakout...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">⚡ Execution Feed</div>
+              <span style="font-size: 0.75rem; color: var(--text-dim);">Auto-Updating</span>
+            </div>
+            <div class="feed-list" id="feed-list">
+              <div class="feed-item" style="text-align: center; color: var(--text-dim);">Waiting for market events...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE 2: /#/positions -->
+      <div id="view-positions" class="page-view">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">⚡ Portfolio Positions & Risk Exposure</div>
+            <button class="btn-danger" onclick="resetJournal()">Close All & Reset</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Ticket #</th>
+                <th>Instrument</th>
+                <th>Side</th>
+                <th>Lots</th>
+                <th>Entry Price</th>
+                <th>Current Mark</th>
+                <th>Floating PnL ($)</th>
+                <th>Opened Time</th>
+              </tr>
+            </thead>
+            <tbody id="full-positions-table-body">
+              <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No active open positions. Watching for SMC breakout...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ROUTE 3: /#/strategy -->
+      <div id="view-strategy" class="page-view">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🎯 Candidate 007 SMC Market Structure & Strategy</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Primary Target Asset</label>
+              <input type="text" class="form-input" value="XAUUSD (Gold) / BTCUSD (Weekend Test)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Market Structure Confirmation</label>
+              <input type="text" class="form-input" value="Higher Highs / Higher Lows (BUY) & Lower Lows / Lower Highs (SELL)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Breakout Window (Donchian Period)</label>
+              <input type="text" class="form-input" value="20 Bars (M1 Timeframe)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Trend Filter (EMA Period)</label>
+              <input type="text" class="form-input" value="50 Period Exponential Moving Average" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Volatility Expansion Gate</label>
+              <input type="text" class="form-input" value="14 ATR >= 20 ATR Moving Average" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Dynamic Profit Target</label>
+              <input type="text" class="form-input" value="+zsh.80 to +.50 per Trade (10-15 Pips on Gold)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Intraday Frequency Target</label>
+              <input type="text" class="form-input" value="10 to 20 High-Probability Scalps / Day" readonly>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE 4: /#/risk -->
+      <div id="view-risk" class="page-view">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🛡️ Risk Controls & Circuit Breakers</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Risk Sizing Per Trade</label>
+              <input type="text" class="form-input" value="1.0% of Marked Equity (Strict)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Daily Drawdown Breaker</label>
+              <input type="text" class="form-input" value="10.0% Daily Loss Ceiling" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Consecutive Loss Guard</label>
+              <input type="text" class="form-input" value="3 Consecutive Loss Cooldown Pause (30 min)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Maximum Simultaneous Positions</label>
+              <input type="text" class="form-input" value="1 Position (Strict Single-Order Lock)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Stop Placement Logic</label>
+              <input type="text" class="form-input" value="Structural Swing Invalidation (Beyond Last HL/LH)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">High-Impact News Shield (CPI / NFP / FOMC)</label>
+              <input type="text" class="form-input" value="🛑 15-min Pre/Post Blackout Window (Automated)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">News Spread Spike Protection</label>
+              <input type="text" class="form-input" value="Max Spread Filter (zsh.50 Ceiling on Gold)" readonly>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE 5: /#/journal -->
+      <div id="view-journal" class="page-view">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">📖 Historical Trade Journal & Event Ledger</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Seq #</th>
+                <th>Event Type</th>
+                <th>Timestamp (UTC)</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody id="journal-table-body">
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No events in current session.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ROUTE 6: /#/bridge -->
+      <div id="view-bridge" class="page-view">
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">⚙️ Bridge Infrastructure & Telegram Dispatcher</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Loopback Bridge Receiver</label>
+              <input type="text" class="form-input" value="http://127.0.0.1:8765/v1/mt5/snapshots" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">MT5 Magic Number</label>
+              <input type="text" class="form-input" value="7007 (QuantForge Isolated Execution)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telegram Bot Username</label>
+              <input type="text" class="form-input" value="@bamquantforgebot (Connected)" readonly>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telegram Destination ID</label>
+              <input type="text" class="form-input" value="5386759666" readonly>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const titles = {
+      cockpit: 'Live Trading Cockpit',
+      positions: 'Portfolio Positions & Exposure',
+      strategy: 'Strategy Parameters & SMC',
+      risk: 'Capital Protection & Risk Controls',
+      journal: 'Historical Trade Ledger',
+      bridge: 'MT5 Bridge & Notification Engine'
+    };
+    const routes = Object.keys(titles);
+
+    function handleRoute() {
+      const hash = window.location.hash.replace('#/', '').replace('#', '') || 'cockpit';
+      const activeRoute = routes.includes(hash) ? hash : 'cockpit';
+
+      routes.forEach(r => {
+        const view = document.getElementById('view-' + r);
+        const link = document.getElementById('nav-' + r);
+        if (view) view.classList.toggle('active', r === activeRoute);
+        if (link) link.classList.toggle('active', r === activeRoute);
+      });
+
+      const titleEl = document.getElementById('txt-page-title');
+      if (titleEl) titleEl.innerText = titles[activeRoute];
+    }
+
+    window.addEventListener('hashchange', handleRoute);
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!window.location.hash) window.location.hash = '#/cockpit';
+      handleRoute();
+    });
+
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function getAudioContext() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function toggleAudio() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('btn-audio');
+      btn.innerText = soundEnabled ? '🔊 Sound' : '🔇 Muted';
+      btn.style.opacity = soundEnabled ? '1' : '0.5';
+    }
+
+    function playTone(freq, type, duration, delay = 0) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + duration);
+      } catch (e) {}
+    }
+
+    function playBuySound() { playTone(880, 'sine', 0.15, 0); playTone(1320, 'sine', 0.25, 0.1); }
+    function playSellSound() { playTone(900, 'triangle', 0.15, 0); playTone(600, 'triangle', 0.25, 0.1); }
+    function playFillSound() { playTone(659.25, 'sine', 0.1, 0); playTone(880, 'sine', 0.1, 0.08); playTone(1046.50, 'sine', 0.2, 0.16); }
+
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: 'Bid Price ($)',
+            data: [],
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.05)',
+            borderWidth: 2,
+            pointRadius: 1,
+            tension: 0.12,
+            fill: true,
+          },
+          {
+            label: 'Ask Price ($)',
+            data: [],
+            borderColor: '#fbbf24',
+            borderDash: [3, 3],
+            borderWidth: 1.2,
+            pointRadius: 0,
+            tension: 0.12,
+            fill: false,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 100 },
+        plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } } } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } } }
+        }
+      }
+    });
+
+    let prevBid = 0.0;
+    let lastEventCount = 0;
+
+    async function fetchState() {
+      try {
+        const resp = await fetch('/api/state');
+        if (!resp.json) return;
+        const data = await resp.json();
+
+        const badgeConn = document.getElementById('badge-connection');
+        const bidEl = document.getElementById('val-bid');
+        const askEl = document.getElementById('val-ask');
+
+        if (data.live_quote) {
+          const q = data.live_quote;
+          badgeConn.className = "badge-status badge-live";
+          badgeConn.innerHTML = `<div class="badge-pulse"></div> Live MT5 (${q.symbol})`;
+
+          if (bidEl) bidEl.innerText = '$' + q.bid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          if (askEl) askEl.innerText = '$' + q.ask.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          prevBid = q.bid;
+          const dSpread = (q.ask && q.bid) ? (q.ask - q.bid) : 0.20; document.getElementById('txt-spread').innerText = 'Spread: $' + dSpread.toFixed(2);
+          document.getElementById('txt-chart-symbol').innerText = q.symbol;
+          document.getElementById('txt-tick-velocity').innerText = '⚡ ' + (data.tick_rate || '1.0') + ' ticks/s';
+        } else {
+          badgeConn.className = "badge-status badge-waiting";
+          badgeConn.innerHTML = `<div class="badge-pulse" style="background:#f59e0b;"></div> MT5 Connecting...`;
+        }
+
+        const baseEquity = 30.0;
+        const equity = data.equity || baseEquity;
+        const totalPnl = data.total_pnl || 0.0;
+        const pnlPct = ((totalPnl / baseEquity) * 100).toFixed(2);
+
+        const eqEl = document.getElementById('val-equity');
+        eqEl.innerText = '$' + equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        eqEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        const pnlEl = document.getElementById('val-pnl');
+        const sign = totalPnl >= 0 ? '+' : '';
+        pnlEl.innerText = sign + '$' + totalPnl.toFixed(2) + ' (' + sign + pnlPct + '%)';
+        pnlEl.style.color = totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        const openPositions = data.open_positions || [];
+        document.getElementById('val-positions-count').innerText = openPositions.length + ' Open';
+        document.getElementById('txt-nav-pos-count').innerText = openPositions.length;
+
+        const quickTbody = document.getElementById('quick-positions-table-body');
+        const fullTbody = document.getElementById('full-positions-table-body');
+        const floatingBadge = document.getElementById('badge-floating-pnl');
+        const floatingPnl = data.floating_pnl || 0.0;
+        const flSign = floatingPnl >= 0 ? '+' : '';
+        
+        floatingBadge.innerText = 'Floating: ' + flSign + '$' + floatingPnl.toFixed(2);
+        floatingBadge.style.color = floatingPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+        if (openPositions.length === 0) {
+          quickTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No open position. Scanning market for SMC breakout...</td></tr>';
+          fullTbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 2rem;">No active open positions. Watching for SMC breakout...</td></tr>';
+        } else {
+          const quickRows = openPositions.slice(0, 1).map(pos => {
+            const pnl = pos.floating_pnl || 0;
+            const posSign = pnl >= 0 ? '+' : '';
+            const pnlClass = pnl >= 0 ? 'profit-pos' : 'profit-neg';
+            const sideBadge = pos.side.toLowerCase() === 'buy' ? '<span class="badge-buy">BUY</span>' : '<span class="badge-sell">SELL</span>';
+            const shortId = (pos.order_id || '').substring(0, 8);
+            return `<tr>
+              <td>#${shortId}</td>
+              <td>${sideBadge}</td>
+              <td>${pos.quantity}</td>
+              <td>$${pos.open_price.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+              <td>$${(pos.current_price || 0).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+              <td class="${pnlClass}">${posSign}$${pnl.toFixed(2)}</td>
+            </tr>`;
+          }).join('');
+          quickTbody.innerHTML = quickRows;
+
+          const fullRows = openPositions.map(pos => {
+            const pnl = pos.floating_pnl || 0;
+            const posSign = pnl >= 0 ? '+' : '';
+            const pnlClass = pnl >= 0 ? 'profit-pos' : 'profit-neg';
+            const sideBadge = pos.side.toLowerCase() === 'buy' ? '<span class="badge-buy">BUY</span>' : '<span class="badge-sell">SELL</span>';
+            return `<tr>
+              <td>#${pos.order_id}</td>
+              <td><strong>${pos.instrument}</strong></td>
+              <td>${sideBadge}</td>
+              <td>${pos.quantity}</td>
+              <td>$${pos.open_price.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+              <td>$${(pos.current_price || 0).toLocaleString('en-US', {minimumFractionDigits:2})}</td>
+              <td class="${pnlClass}">${posSign}$${pnl.toFixed(2)}</td>
+              <td>${(pos.opened_at || '').substring(11, 19)} UTC</td>
+            </tr>`;
+          }).join('');
+          fullTbody.innerHTML = fullRows;
+        }
+
+        if (data.price_history && data.price_history.length > 0) {
+          priceChart.data.labels = data.price_history.map(p => p.time);
+          priceChart.data.datasets[0].data = data.price_history.map(p => p.bid);
+          priceChart.data.datasets[1].data = data.price_history.map(p => p.ask);
+          priceChart.update('none');
+        }
+
+        if (data.events && data.events.length > 0) {
+          if (data.events.length > lastEventCount && lastEventCount > 0) {
+            const latest = data.events[data.events.length - 1];
+            if (latest.event_type === 'TradeIntentGenerated') {
+              if (latest.payload.side === 'buy') playBuySound();
+              else playSellSound();
+            } else if (latest.event_type === 'ExecutionOutcomeRecorded') {
+              playFillSound();
+            }
+          }
+          lastEventCount = data.events.length;
+
+          const feedList = document.getElementById('feed-list');
+          const reversed = [...data.events].reverse().slice(0, 10);
+          feedList.innerHTML = reversed.map(e => {
+            const timeStr = (e.occurred_at_utc || '').substring(11, 19) || 'Live';
+            let icon = '⚡';
+            let title = e.event_type;
+            let detail = '';
+
+            if (e.event_type === 'TradeIntentGenerated') {
+              const side = (e.payload.side || '').toUpperCase();
+              icon = side === 'BUY' ? '🟢' : '🔴';
+              title = `<span class="${side === 'BUY' ? 'badge-buy' : 'badge-sell'}">SIGNAL: ${side}</span>`;
+              detail = e.payload.rationale || `Entry: $${e.payload.entry_price}`;
+            } else if (e.event_type === 'RiskDecisionRecorded') {
+              icon = e.payload.approved ? '🛡️' : '⚠️';
+              title = e.payload.approved ? '<span style="color:var(--accent-green);font-weight:700;">RISK APPROVED</span>' : '<span style="color:var(--accent-red);font-weight:700;">RISK REJECTED</span>';
+              detail = e.payload.approved ? `1% Risk Budget` : (e.payload.reasons || []).join(', ');
+            } else if (e.event_type === 'ExecutionOutcomeRecorded') {
+              const st = (e.payload.status || '').toUpperCase();
+              icon = st === 'FILLED' ? '🎉' : (st === 'STOPPED_OUT' ? '🛡️' : '🏁');
+              title = `<span style="color:#fbbf24;font-weight:700;">EXECUTION: ${st}</span>`;
+              detail = `${(e.payload.side || '').toUpperCase()} ${e.payload.quantity} @ $${e.payload.price || ''} ${e.payload.reason ? '('+e.payload.reason+')' : ''}`;
+            }
+
+            return `<div class="feed-item">
+              <div class="feed-meta">
+                <span>${icon} ${timeStr} UTC</span>
+                <span>${e.event_type}</span>
+              </div>
+              <div class="feed-title">${title}</div>
+              <div class="feed-detail">${detail}</div>
+            </div>`;
+          }).join('');
+
+          const journalBody = document.getElementById('journal-table-body');
+          journalBody.innerHTML = reversed.map((e, idx) => {
+            return `<tr>
+              <td>#${e.sequence || (reversed.length - idx)}</td>
+              <td><strong>${e.event_type}</strong></td>
+              <td>${e.occurred_at_utc}</td>
+              <td style="color:#94a3b8;">${JSON.stringify(e.payload)}</td>
+            </tr>`;
+          }).join('');
+        } else {
+          document.getElementById('feed-list').innerHTML = '<div class="feed-item" style="text-align: center; color: var(--text-dim);">Fresh session started. Waiting for market events...</div>';
+          document.getElementById('journal-table-body').innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No events in current session.</td></tr>';
+        }
+      } catch (err) {
+        console.warn('Polling error:', err);
+      }
+    }
+
+    async function resetJournal() {
+      if (!confirm("Are you sure you want to reset the paper journal and start fresh?")) return;
+      try {
+        const resp = await fetch('/api/reset_journal', { method: 'POST' });
+        const res = await resp.json();
+        if (res.success) {
+          alert("Paper journal and live bridge reset successfully!");
+          fetchState();
+        }
+      } catch (e) {
+        alert("Failed to reset journal: " + e);
+      }
+    }
+
+    setInterval(fetchState, 500);
+    fetchState();
+  </script>
+</body>
+</html>
+"""
+
+
+class DashboardHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/" or parsed.path == "/index.html":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(HTML_TEMPLATE.encode("utf-8"))
+        elif parsed.path == "/api/state":
+            state = self.get_state()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(state).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/reset_journal":
+            try:
+                # 1. Reset disk database table safely
+                if JOURNAL_DB.exists():
+                    conn = sqlite3.connect(JOURNAL_DB)
+                    conn.execute("DELETE FROM event_journal;")
+                    conn.commit()
+                    conn.close()
+
+                # 2. Reset live bridge in-memory state
+                try:
+                    req = urllib.request.Request(
+                        BRIDGE_RESET_URL,
+                        headers={"Authorization": f"Bearer {BRIDGE_TOKEN}"},
+                        method="POST",
+                    )
+                    urllib.request.urlopen(req, timeout=2)
+                except Exception:
+                    pass
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode("utf-8"))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def get_state(self) -> dict[str, object]:
+        global SNAPSHOT_COUNT, LAST_BID, LAST_ASK, TICK_COUNT, START_TIME
+        live_quote = None
+        raw_mt5_positions = []
+
+        # 1. Fetch real-time snapshot directly from running MT5 live bridge
+        try:
+            req = urllib.request.Request(
+                BRIDGE_LATEST_URL,
+                headers={"Authorization": f"Bearer {BRIDGE_TOKEN}"},
+            )
+            with urllib.request.urlopen(req, timeout=1) as resp:
+                if resp.status == 200:
+                    payload = json.loads(resp.read().decode("utf-8"))
+                    q = payload.get("quote", {})
+                    if q:
+                        bid = float(q.get("bid", 0.0))
+                        ask = float(q.get("ask", 0.0))
+                        obs_time = payload.get("observed_at_utc", "")
+                        time_str = obs_time[11:19] if len(obs_time) >= 19 else "Live"
+                        live_quote = {
+                            "bid": bid,
+                            "ask": ask,
+                            "spread_points": float(q.get("spread_points", 0.0)),
+                            "tick_time": time_str,
+                            "symbol": payload.get("instrument", {}).get("broker_symbol", "#BTCUSD"),
+                        }
+                        SNAPSHOT_COUNT += 1
+                        TICK_COUNT += 1
+
+                        if (
+                            not PRICE_HISTORY
+                            or PRICE_HISTORY[-1]["bid"] != bid
+                            or PRICE_HISTORY[-1]["ask"] != ask
+                            or PRICE_HISTORY[-1]["time"] != time_str
+                        ):
+                            PRICE_HISTORY.append({"time": time_str, "bid": bid, "ask": ask})
+
+                        LAST_BID = bid
+                        LAST_ASK = ask
+                        raw_mt5_positions = payload.get("positions", [])
+        except Exception:
+            pass
+
+        # Calculate tick rate
+        elapsed = max(1.0, time.time() - START_TIME)
+        tick_rate = round(TICK_COUNT / elapsed, 1)
+
+        # 2. Read journal events & calculate positions, floating & realized PnL
+        events = []
+        open_positions = {}
+        realized_pnl = 0.0
+        fills_count = 0
+
+        if JOURNAL_DB.exists():
+            try:
+                conn = sqlite3.connect(JOURNAL_DB)
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT sequence, event_type, occurred_at_utc, payload_json FROM event_journal ORDER BY sequence ASC"
+                )
+                rows = cursor.fetchall()
+                conn.close()
+
+                for seq, event_type, occurred_at_utc, payload_json in rows:
+                    payload = json.loads(payload_json)
+                    events.append(
+                        {
+                            "sequence": seq,
+                            "event_type": event_type,
+                            "occurred_at_utc": occurred_at_utc,
+                            "payload": payload,
+                        }
+                    )
+
+                    if event_type == "ExecutionOutcomeRecorded":
+                        st = payload.get("status")
+                        oid = payload.get("order_id")
+                        qty = float(payload.get("quantity", 0.0) or 0.0)
+                        p_price = float(payload.get("price", 0.0) or 0.0)
+                        side = payload.get("side", "buy")
+
+                        if st == "filled":
+                            fills_count += 1
+                            open_positions[oid] = {
+                                "order_id": oid,
+                                "instrument": payload.get("instrument", "#BTCUSD"),
+                                "side": side,
+                                "quantity": qty,
+                                "open_price": p_price,
+                                "opened_at": occurred_at_utc,
+                            }
+                        elif st in {"stopped_out", "target_reached", "forced_exit"} and oid in open_positions:
+                            fills_count += 1
+                            pos = open_positions.pop(oid)
+                            ep = pos["open_price"]
+                            pnl = (p_price - ep) * qty if pos["side"] == "buy" else (ep - p_price) * qty
+                            realized_pnl += pnl
+            except Exception:
+                pass
+
+        # If live MT5 positions exist in snapshot, merge them
+        if raw_mt5_positions:
+            for mt5_p in raw_mt5_positions:
+                ticket_id = str(mt5_p.get("ticket") or mt5_p.get("id") or "")
+                if ticket_id and ticket_id not in open_positions:
+                    open_positions[ticket_id] = {
+                        "order_id": ticket_id,
+                        "instrument": mt5_p.get("symbol", "#BTCUSD"),
+                        "side": str(mt5_p.get("type", "buy")).lower(),
+                        "quantity": float(mt5_p.get("volume", 0.01)),
+                        "open_price": float(mt5_p.get("price_open", 0.0)),
+                        "opened_at": str(mt5_p.get("time_utc", datetime.now().isoformat())),
+                    }
+
+        # Calculate floating PnL on open positions using live quotes
+        floating_pnl = 0.0
+        active_positions_list = []
+        cur_bid = live_quote["bid"] if live_quote else 0.0
+        cur_ask = live_quote["ask"] if live_quote else 0.0
+
+        for pos in open_positions.values():
+            cp = cur_bid if pos["side"] == "buy" else cur_ask
+            if cp > 0:
+                pos_pnl = (cp - pos["open_price"]) * pos["quantity"] if pos["side"] == "buy" else (pos["open_price"] - cp) * pos["quantity"]
+            else:
+                pos_pnl = 0.0
+            floating_pnl += pos_pnl
+            pos_copy = dict(pos)
+            pos_copy["floating_pnl"] = pos_pnl
+            pos_copy["current_price"] = cp
+            active_positions_list.append(pos_copy)
+
+        initial_cash = 30.0
+        current_cash = initial_cash + realized_pnl
+        current_equity = current_cash + floating_pnl
+        total_pnl = realized_pnl + floating_pnl
+
+        signals = sum(1 for e in events if e["event_type"] == "TradeIntentGenerated")
+        approved = sum(1 for e in events if e["event_type"] == "OrderApproved")
+
+        return {
+            "equity": current_equity,
+            "cash": current_cash,
+            "realized_pnl": realized_pnl,
+            "floating_pnl": floating_pnl,
+            "total_pnl": total_pnl,
+            "open_positions": active_positions_list,
+            "fills_count": fills_count,
+            "signals_count": signals,
+            "approved_orders": approved,
+            "events": events,
+            "total_snapshots": max(SNAPSHOT_COUNT, len(PRICE_HISTORY)),
+            "live_quote": live_quote,
+            "price_history": list(PRICE_HISTORY),
+            "tick_rate": tick_rate,
+        }
+
+    def log_message(self, format: str, *args: Any) -> None:
+        pass
+
+
+def main() -> None:
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else PORT
+    server = ThreadingHTTPServer(("0.0.0.0", port), DashboardHandler)
+    print(f"🚀 QuantForge Studio Live Dashboard running at: http://127.0.0.1:{port}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()

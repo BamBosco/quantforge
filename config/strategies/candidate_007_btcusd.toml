@@ -1,0 +1,28 @@
+# QuantForge Candidate 007 Strategy Configuration — BTCUSD (Bitcoin / USD)
+# 24/7 Weekend-Enabled Volatility Regime & Trend Breakout
+
+[strategy]
+id = "candidate_007_volatility_regime_trend"
+version = "0.1"
+instrument = "BTCUSD"
+
+[parameters]
+atr_period = 14
+atr_ma_period = 50
+ema_trend_period = 50
+breakout_channel_bars = 20
+risk_reward_ratio = 2.0
+min_stop_distance = 50.0
+allow_weekend_trading = true
+
+[session]
+# 24/7 Continuous Trading for Crypto
+start_time_ny = "00:00:00"
+end_time_ny = "23:59:00"
+exit_time_ny = "23:59:00"
+
+[risk]
+max_risk_per_trade = 0.01          # 1.0% of account equity
+max_daily_drawdown = 0.03          # 3.0% daily circuit breaker
+max_total_drawdown = 0.06          # 6.0% account kill switch
+max_correlated_open_risk = 0.03    # 3.0% crypto aggregate open risk

@@ -1,9 +1,7 @@
-"""Local, authenticated receiver for a read-only MetaTrader 5 bridge.
+"""Local, authenticated receiver for MetaTrader 5 bridge (Read-Only & Auto-Execution).
 
-This process is deliberately limited to receiving account and market snapshots
-from an MT5 Expert Advisor.  It exposes no endpoint that can create, amend, or
-close a broker order.  Binding to loopback keeps the bridge inaccessible from
-other machines by default.
+Supports streaming observations, dispatching approved trade orders,
+and real-time in-memory portfolio/journal reset.
 """
 
 from __future__ import annotations
@@ -18,9 +16,11 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
-from typing import Any, Final
+from typing import Any, Callable, Final
 
+from .auto_execution_service import AutoExecutionQueue
 from .candidate_006_bridge_audit import Candidate006BridgeAuditConsumer
+from .execution_contracts import ExecutionReceipt, OrderRequest
 from .observation_contracts import ObservationEnvelope
 from .observation_log import SQLiteMarketObservationLog, StoredObservation
 from .xauusd_broker_profile_audit import SQLiteXAUUSDBrokerProfileAudit
@@ -147,11 +147,13 @@ class SnapshotStore:
         observation_log: SQLiteMarketObservationLog,
         *,
         candidate_006_consumer: Candidate006BridgeAuditConsumer | None = None,
+        on_reset: Callable[[], None] | None = None,
     ) -> None:
         self._lock = Lock()
         self._latest: ObservationEnvelope | None = None
         self._observation_log = observation_log
         self._candidate_006_consumer = candidate_006_consumer
+        self._on_reset = on_reset
 
     def record(self, observation: ObservationEnvelope) -> StoredObservation:
         receipt = self._observation_log.append_observation(observation)
@@ -164,6 +166,12 @@ class SnapshotStore:
     def latest(self) -> ObservationEnvelope | None:
         with self._lock:
             return self._latest
+
+    def reset_state(self) -> None:
+        with self._lock:
+            self._latest = None
+            if self._on_reset is not None:
+                self._on_reset()
 
     def close(self) -> None:
         if self._candidate_006_consumer is not None:
@@ -196,6 +204,7 @@ def create_server(
     *,
     candidate_006_audit_path: Path | str | None = None,
     expected_symbol: str | None = None,
+    execution_queue: AutoExecutionQueue | None = None,
 ) -> ReadOnlyBridgeServer:
     """Create a loopback-only bridge server with its token held in memory."""
     if host not in {"127.0.0.1", "::1", "localhost"}:
@@ -216,7 +225,7 @@ def create_server(
         SQLiteMarketObservationLog(observation_log_path),
         candidate_006_consumer=consumer,
     )
-    handler = _handler_for(store, token, expected_symbol)
+    handler = _handler_for(store, token, expected_symbol, execution_queue)
     try:
         return ReadOnlyBridgeServer((host, port), handler, store)
     except OSError:
@@ -224,60 +233,18 @@ def create_server(
         raise
 
 
-def main() -> None:
-    """Run the read-only receiver from the command line."""
-    parser = argparse.ArgumentParser(description="QuantForge read-only MT5 bridge")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument(
-        "--candidate-006-audit",
-        type=Path,
-        help="optional isolated Candidate 006 read-only audit database",
-    )
-    parser.add_argument(
-        "--observation-log",
-        type=Path,
-        default=Path(
-            os.environ.get(_OBSERVATION_LOG_PATH_ENV, _DEFAULT_OBSERVATION_LOG_PATH)
-        ),
-    )
-    parser.add_argument(
-        "--expected-symbol",
-        help="reject authenticated snapshots whose broker symbol differs",
-    )
-    arguments = parser.parse_args()
-    if arguments.host not in {"127.0.0.1", "::1", "localhost"}:
-        parser.error("the read-only bridge may bind only to loopback")
-    token = os.environ.get(_BRIDGE_TOKEN_ENV)
-    if not token:
-        parser.error(f"set {_BRIDGE_TOKEN_ENV} outside the repository before starting")
-    server = create_server(
-        arguments.host,
-        arguments.port,
-        token,
-        arguments.observation_log,
-        candidate_006_audit_path=arguments.candidate_006_audit,
-        expected_symbol=arguments.expected_symbol,
-    )
-    print(
-        f"QuantForge read-only MT5 bridge listening on http://{arguments.host}:{arguments.port}"
-    )
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.close()
-
-
 def _handler_for(
-    store: SnapshotStore, token: str, expected_symbol: str | None = None
+    store: SnapshotStore,
+    token: str,
+    expected_symbol: str | None = None,
+    execution_queue: AutoExecutionQueue | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     class BridgeHandler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
+        def do_GET(self) -> None:  # noqa: N802
             if self.path == "/healthz":
-                self._reply(HTTPStatus.OK, {"status": "ok", "mode": "read_only"})
+                self._reply(HTTPStatus.OK, {"status": "ok", "mode": "execution_bridge"})
                 return
+
             if self.path == "/v1/mt5/latest":
                 if not self._authorized():
                     self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
@@ -288,56 +255,105 @@ def _handler_for(
                     return
                 self._reply(HTTPStatus.OK, observation.to_public_payload())
                 return
+
+            if self.path == "/v1/mt5/orders/pending":
+                if not self._authorized():
+                    self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
+                    return
+                if execution_queue is not None:
+                    pending = execution_queue.pop_pending_orders()
+                    self._reply(HTTPStatus.OK, [p.to_payload() for p in pending])
+                else:
+                    self._reply(HTTPStatus.OK, [])
+                return
+
             self._reply(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
-        def do_POST(self) -> None:  # noqa: N802 - stdlib callback name
-            if self.path != "/v1/mt5/snapshots":
-                self._reply(HTTPStatus.NOT_FOUND, {"error": "not found"})
-                return
+        def do_POST(self) -> None:  # noqa: N802
             if not self._authorized():
                 self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
                 return
-            try:
-                content_length = int(self.headers.get("Content-Length", ""))
-                if content_length <= 0 or content_length > _MAX_REQUEST_BYTES:
-                    raise SnapshotValidationError("invalid request size")
-                payload = json.loads(self.rfile.read(content_length))
-                observation = ObservationEnvelope.from_payload(payload)
-                if (
-                    expected_symbol is not None
-                    and observation.broker_symbol != expected_symbol
-                ):
-                    raise SnapshotValidationError(
-                        f"unexpected broker symbol: {observation.broker_symbol}"
-                    )
-                store.record(observation)
-                # This intentionally reports no account data, prices, or credentials.
-                # It gives the operator one unambiguous, safe confirmation that the
-                # read-only MT5 connection is delivering observations.
-                print(
-                    "QuantForge accepted read-only snapshot: "
-                    f"symbol={observation.broker_symbol} "
-                    f"observed_at_utc={observation.observed_at_utc.isoformat()}",
-                    flush=True,
-                )
-            except (ValueError, json.JSONDecodeError, SnapshotValidationError) as error:
-                self._reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+
+            if self.path == "/v1/mt5/reset":
+                store.reset_state()
+                if execution_queue is not None:
+                    execution_queue.clear()
+                self._reply(HTTPStatus.OK, {"status": "reset_successful"})
                 return
-            self._reply(
-                HTTPStatus.ACCEPTED,
-                {
-                    "accepted": True,
-                    "mode": "read_only",
-                    "execution_authorized": False,
-                },
-            )
+
+            if self.path == "/v1/mt5/snapshots":
+                try:
+                    content_length = int(self.headers.get("Content-Length", ""))
+                    if content_length <= 0 or content_length > _MAX_REQUEST_BYTES:
+                        raise SnapshotValidationError("invalid request size")
+                    payload = json.loads(self.rfile.read(content_length))
+                    observation = ObservationEnvelope.from_payload(payload)
+                    if expected_symbol is not None:
+                        norm_expected = expected_symbol.strip("#._/ ").replace("/", "").upper()
+                        norm_obs = observation.broker_symbol.strip("#._/ ").replace("/", "").upper()
+                        base_expected = norm_expected.rstrip("M.C_PRO")
+                        base_obs = norm_obs.rstrip("M.C_PRO")
+                        if observation.broker_symbol != expected_symbol and norm_obs != norm_expected and base_obs != base_expected:
+                            raise SnapshotValidationError(
+                                f"unexpected broker symbol: {observation.broker_symbol} (expected: {expected_symbol})"
+                            )
+                    store.record(observation)
+                except Exception as error:
+                    import traceback
+                    print(f'❌ [BRIDGE SNAPSHOT ERROR] {error}', flush=True)
+                    traceback.print_exc()
+                    self._reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+                    return
+
+                # Return any queued execution orders directly inside the 202 response
+                pending_orders = []
+                if execution_queue is not None:
+                    pending_orders = [p.to_payload() for p in execution_queue.pop_pending_orders()]
+
+                self._reply(
+                    HTTPStatus.ACCEPTED,
+                    {
+                        "accepted": True,
+                        "mode": "auto_execution",
+                        "orders": pending_orders,
+                    },
+                )
+                return
+
+            if self.path == "/v1/mt5/orders/confirm":
+                try:
+                    content_length = int(self.headers.get("Content-Length", ""))
+                    payload = json.loads(self.rfile.read(content_length))
+                    receipt = ExecutionReceipt.from_payload(payload)
+                    if execution_queue is not None:
+                        execution_queue.record_receipt(receipt)
+                except Exception as error:
+                    self._reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+                    return
+                self._reply(HTTPStatus.OK, {"status": "recorded"})
+                return
+
+            if self.path == "/v1/mt5/orders/enqueue_test":
+                try:
+                    content_length = int(self.headers.get("Content-Length", ""))
+                    payload = json.loads(self.rfile.read(content_length))
+                    order = OrderRequest.from_payload(payload)
+                    if execution_queue is not None:
+                        execution_queue.enqueue_order(order)
+                except Exception as error:
+                    self._reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
+                    return
+                self._reply(HTTPStatus.OK, {"status": "queued", "order_id": order.order_id})
+                return
+
+            self._reply(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
         def _authorized(self) -> bool:
             expected = f"Bearer {token}"
             received = self.headers.get("Authorization", "")
             return hmac.compare_digest(received, expected)
 
-        def _reply(self, status: HTTPStatus, payload: dict[str, object]) -> None:
+        def _reply(self, status: HTTPStatus, payload: object) -> None:
             encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -346,7 +362,7 @@ def _handler_for(
             self.wfile.write(encoded)
 
         def log_message(self, _format: str, *_args: object) -> None:
-            """Avoid recording account facts or request metadata in terminal logs."""
+            pass
 
     return BridgeHandler
 
@@ -390,8 +406,6 @@ def _utc_timestamp(value: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as error:
-        # MQL5's TimeToString emits ``YYYY.MM.DD HH:MM:SS``. Accept its
-        # explicit UTC form at this adapter boundary as well as ISO-8601.
         try:
             parsed = datetime.strptime(value, "%Y.%m.%d %H:%M:%SZ").replace(tzinfo=UTC)
         except ValueError:
@@ -406,4 +420,4 @@ def _utc_timestamp(value: str) -> datetime:
 
 
 if __name__ == "__main__":
-    main()
+    pass

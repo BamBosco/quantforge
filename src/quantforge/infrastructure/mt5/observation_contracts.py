@@ -55,13 +55,15 @@ def _string(value: Any, path: str, *, allow_empty: bool = False) -> str:
 def _terminal_clock(value: Any, path: str) -> str:
     """Validate a terminal clock without assigning it a timezone or offset."""
     text = _string(value, path)
-    try:
-        datetime.strptime(text, "%Y.%m.%d %H:%M:%S")
-    except ValueError as error:
-        raise ObservationValidationError(
-            f"{path} must be an MT5 terminal timestamp"
-        ) from error
-    return text
+    for fmt in ("%Y.%m.%d %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            datetime.strptime(text, fmt)
+            return text
+        except ValueError:
+            pass
+    raise ObservationValidationError(
+        f"{path} must be an MT5 terminal timestamp"
+    )
 
 
 def _integer(value: Any, path: str, *, minimum: int | None = None) -> int:
@@ -544,7 +546,11 @@ class ObservationEnvelope:
         candles["forming"] = (
             None if forming is None else _validate_candle(forming, "candles.forming")
         )
-        completed = _list(candles.get("completed"), "candles.completed")
+        completed_raw = candles.get("completed")
+        if isinstance(completed_raw, dict):
+            completed = [completed_raw]
+        else:
+            completed = _list(completed_raw, "candles.completed")
         candles["completed"] = [
             _validate_candle(item, f"candles.completed[{index}]")
             for index, item in enumerate(completed)

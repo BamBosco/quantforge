@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import sqlite3
 import time
@@ -132,6 +133,210 @@ class TelegramAIAssistant:
             ]
         except Exception:
             return []
+
+    def get_recent_chat_history(
+        self, chat_id: str, limit: int = 6
+    ) -> list[dict[str, str]]:
+        """Retrieve recent conversation turns for context-aware multi-turn reasoning."""
+        try:
+            conn = sqlite3.connect(self.brain_db_path)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT role, message_text FROM chat_history WHERE chat_id = ? ORDER BY id DESC LIMIT ?",
+                (str(chat_id), limit),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            history = []
+            for r in reversed(rows):
+                history.append({"role": r[0], "text": r[1]})
+            return history
+        except Exception:
+            return []
+
+    def _get_gemini_api_key(self) -> str | None:
+        """Resolve Google Gemini API Key from environment or .env files."""
+        key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if key:
+            return key.strip()
+
+        env_paths = [
+            Path(".env"),
+            Path(__file__).resolve().parent.parent.parent.parent.parent / ".env",
+            Path.home() / ".env",
+        ]
+        for p in env_paths:
+            if p.exists():
+                try:
+                    with open(p, encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line.startswith("GEMINI_API_KEY=") or line.startswith("GOOGLE_API_KEY="):
+                                parts = line.split("=", 1)
+                                if len(parts) == 2 and parts[1].strip():
+                                    return parts[1].strip().strip("\"'")
+                except Exception:
+                    pass
+        return None
+
+    def _handle_gemini_actions(self, raw_text: str, ctx: dict[str, Any]) -> str:
+        """Parse AI action tags and execute real-time trading actions on MT5."""
+        action_log = []
+        clean_text = raw_text
+
+        if "[ACTION:BUY_GOLD]" in clean_text:
+            res = self.execute_trade_action("buy", symbol="XAUUSD", quantity=0.01)
+            p = res.get("price", ctx.get("bid", 2735.0))
+            if res.get("success"):
+                action_log.append(f"🟢 <b>[EXECUTED] BUY 0.01 XAUUSD @ ${p:,.2f}</b>")
+            else:
+                action_log.append(f"⚠️ [REJECTED] BUY Gold: {res.get('error')}")
+            clean_text = clean_text.replace("[ACTION:BUY_GOLD]", "").strip()
+
+        if "[ACTION:SELL_GOLD]" in clean_text:
+            res = self.execute_trade_action("sell", symbol="XAUUSD", quantity=0.01)
+            p = res.get("price", ctx.get("bid", 2735.0))
+            if res.get("success"):
+                action_log.append(f"🔴 <b>[EXECUTED] SELL 0.01 XAUUSD @ ${p:,.2f}</b>")
+            else:
+                action_log.append(f"⚠️ [REJECTED] SELL Gold: {res.get('error')}")
+            clean_text = clean_text.replace("[ACTION:SELL_GOLD]", "").strip()
+
+        if "[ACTION:BUY_BTC]" in clean_text:
+            res = self.execute_trade_action("buy", symbol="BTCUSDm", quantity=0.01)
+            p = res.get("price", ctx.get("bid", 78200.0))
+            if res.get("success"):
+                action_log.append(f"🟢 <b>[EXECUTED] BUY 0.01 BTCUSDm @ ${p:,.2f}</b>")
+            else:
+                action_log.append(f"⚠️ [REJECTED] BUY BTC: {res.get('error')}")
+            clean_text = clean_text.replace("[ACTION:BUY_BTC]", "").strip()
+
+        if "[ACTION:SELL_BTC]" in clean_text:
+            res = self.execute_trade_action("sell", symbol="BTCUSDm", quantity=0.01)
+            p = res.get("price", ctx.get("bid", 78200.0))
+            if res.get("success"):
+                action_log.append(f"🔴 <b>[EXECUTED] SELL 0.01 BTCUSDm @ ${p:,.2f}</b>")
+            else:
+                action_log.append(f"⚠️ [REJECTED] SELL BTC: {res.get('error')}")
+            clean_text = clean_text.replace("[ACTION:SELL_BTC]", "").strip()
+
+        if "[ACTION:CLOSE_ALL]" in clean_text:
+            res = self.close_all_action()
+            if res.get("success"):
+                pnl = res.get("realized_pnl", 0.0)
+                sign = "+" if pnl >= 0 else ""
+                action_log.append(f"🏁 <b>[EXECUTED] Closed {res.get('closed_count', 1)} Positions ({sign}${pnl:.2f})</b>")
+            else:
+                action_log.append("ℹ️ [NOTICE] No open positions to close.")
+            clean_text = clean_text.replace("[ACTION:CLOSE_ALL]", "").strip()
+
+        if "[ACTION:CLOSE_PROFIT]" in clean_text:
+            res = self.close_profit_action()
+            if res.get("success"):
+                pnl = res.get("realized_pnl", 0.0)
+                action_log.append(f"💰 <b>[EXECUTED] Banked +${pnl:.2f} Profit!</b>")
+            else:
+                action_log.append("ℹ️ [NOTICE] No open positions currently in positive profit.")
+            clean_text = clean_text.replace("[ACTION:CLOSE_PROFIT]", "").strip()
+
+        if action_log:
+            clean_text = f"{clean_text}\n\n" + "\n".join(action_log)
+
+        return clean_text
+
+    def query_gemini_ai(
+        self, text: str, user_name: str, ctx: dict[str, Any], chat_id: str
+    ) -> str | None:
+        """Query Google Gemini API with rich QuantForge telemetry, SMC domain knowledge, and persistent memory."""
+        api_key = self._get_gemini_api_key()
+        if not api_key:
+            return None
+
+        name = user_name or "Trader"
+        notes = self.get_notes(limit=5)
+        notes_text = (
+            "\n".join([f"- {n['note']} ({n['category']})" for n in notes])
+            if notes
+            else "No custom notes recorded."
+        )
+        history = self.get_recent_chat_history(chat_id, limit=6)
+
+        system_instruction = (
+            f"You are QuantForge AI, an institutional algorithmic trading intelligence and Smart Money Concepts (SMC) quantitative assistant created for {name} (@Bambosco).\n"
+            f"You are directly integrated with QuantForge's live MetaTrader 5 (MT5) execution engine, real-time telemetry, and persistent SQLite memory.\n\n"
+            f"TELEMETRY & LIVE STATE:\n"
+            f"- Instrument: {ctx.get('symbol', 'BTCUSDm')}\n"
+            f"- Live Quote: Bid ${ctx.get('bid', 0.0):,.2f} | Ask ${ctx.get('ask', 0.0):,.2f} (Spread: ${ctx.get('spread', 0.0):,.2f})\n"
+            f"- Account Equity: ${ctx.get('equity', 30.0):,.2f} | Cash: ${ctx.get('cash', 30.0):,.2f}\n"
+            f"- Floating PnL: ${ctx.get('floating_pnl', 0.0):,.2f} | Realized PnL: ${ctx.get('realized_pnl', 0.0):,.2f}\n"
+            f"- Open Positions: {len(ctx.get('open_positions', []))} active ({json.dumps(ctx.get('open_positions', []))})\n"
+            f"- Win Rate: {ctx.get('win_rate', 0.0):.1f}%\n"
+            f"- User Persistent Memory & Notes:\n{notes_text}\n\n"
+            f"QUANTFORGE STRATEGY ARCHITECTURE & RULES:\n"
+            f"1. Candidate 007 SMC Scalper:\n"
+            f"   - 50 EMA trend filter (institutional order flow direction).\n"
+            f"   - 20-bar Donchian channel breakout for high-momentum entries.\n"
+            f"   - 14 ATR volatility expansion gate (ATR expanding above its 20 MA).\n"
+            f"   - Structural breathing room (2.0x ATR cushion beyond swing levels to prevent getting swept on Gold/BTC wicks).\n"
+            f"   - High frequency capability: 100–250 trades/day with instant $1.00 to $2.00 direct profit banking per position.\n"
+            f"2. Risk Guardrails:\n"
+            f"   - 1.0% maximum risk budget per trade ($0.30 on $30 capital).\n"
+            f"   - Strict 0.01 micro-lots.\n"
+            f"   - Never revenge trade or double lots.\n"
+            f"3. Execution Action Tags:\n"
+            f"   If the user instructs you to execute a trade, flatten positions, or lock profit, append the exact action tag so QuantForge executes it immediately:\n"
+            f"   - [ACTION:BUY_GOLD] (Buy 0.01 lot XAUUSD)\n"
+            f"   - [ACTION:SELL_GOLD] (Sell 0.01 lot XAUUSD)\n"
+            f"   - [ACTION:BUY_BTC] (Buy 0.01 lot BTCUSDm)\n"
+            f"   - [ACTION:SELL_BTC] (Sell 0.01 lot BTCUSDm)\n"
+            f"   - [ACTION:CLOSE_ALL] (Close all open positions)\n"
+            f"   - [ACTION:CLOSE_PROFIT] (Close only profitable positions)\n\n"
+            f"GUIDELINES:\n"
+            f"- Answer any question thoroughly, intelligently, and analytically using institutional quant and SMC knowledge.\n"
+            f"- Always use Telegram HTML tags (<b>bold</b>, <i>italic</i>, <code>code</code>) for clean, beautiful formatting.\n"
+            f"- Keep responses crisp, engaging, and professional."
+        )
+
+        contents = []
+        for h in history:
+            role = "user" if h["role"] == "user" else "model"
+            contents.append({"role": role, "parts": [{"text": h["text"]}]})
+
+        contents.append({"role": "user", "parts": [{"text": text}]})
+
+        payload = {
+            "system_instruction": {"parts": [{"text": system_instruction}]},
+            "contents": contents,
+            "generationConfig": {
+                "temperature": 0.4,
+                "maxOutputTokens": 1024,
+            },
+        }
+
+        models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"]
+        for model in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+            try:
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=12) as resp:
+                    if resp.status == 200:
+                        res_data = json.loads(resp.read().decode("utf-8"))
+                        candidates = res_data.get("candidates", [])
+                        if candidates:
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts:
+                                raw_text = parts[0].get("text", "").strip()
+                                return self._handle_gemini_actions(raw_text, ctx)
+            except Exception as e:
+                logger.debug(f"Gemini {model} call failed: {e}")
+                continue
+
+        return None
 
     def fetch_live_system_context(self) -> dict[str, Any]:
         """Fetch real-time state from the running Web Cockpit and MT5 Live Bridge."""
@@ -628,6 +833,13 @@ class TelegramAIAssistant:
             return reply
 
         # 11. Conversational AI Reasoning & Natural Language Dialogue Engine
+        # Try real Gemini AI LLM first if API key is configured
+        gemini_reply = self.query_gemini_ai(cleaned, user_name, ctx, chat_id)
+        if gemini_reply:
+            self.store_chat("assistant", gemini_reply, chat_id=chat_id)
+            return gemini_reply
+
+        # Fallback to rich built-in institutional knowledge brain
         reply = self.generate_ai_conversational_reply(cleaned, user_name, ctx)
         self.store_chat("assistant", reply, chat_id=chat_id)
         return reply
@@ -663,6 +875,41 @@ class TelegramAIAssistant:
                 f"👋 <b>Hey {name}!</b> Always good to connect with you.\n\n"
                 f"I'm keeping a constant eye on <b>{sym}</b> (currently at <code>${bid:,.2f}</code>). {pos_msg}\n\n"
                 f"How can I assist your trading right now? You can ask me for a market breakdown, check risk, or tell me to <i>'buy gold'</i> / <i>'close profit'</i> whenever you're ready."
+            )
+
+        # 2. QuantForge Knowledge & Intelligence Disclosure
+        if any(
+            w in lower
+            for w in [
+                "what did you know",
+                "what do you know",
+                "tell me about quantforge",
+                "what is quantforge",
+                "quantforge",
+                "who made you",
+                "your knowledge",
+                "your training",
+            ]
+        ):
+            return (
+                f"🧠 <b>QuantForge Autonomous Trading Intelligence</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"I am the institutional AI quant assistant powering <b>QuantForge</b>, built for <b>{name}</b> (@Bambosco).\n\n"
+                f"<b>📚 Core Quant Systems & Knowledge:</b>\n"
+                f"1. <b>Candidate 007 SMC Scalper:</b>\n"
+                f"   • <b>Institutional Trend:</b> 50 EMA filter ensures we only trade in the direction of higher-timeframe order flow.\n"
+                f"   • <b>Donchian Breakout:</b> 20-bar volatility channel identifying high-momentum entry points.\n"
+                f"   • <b>Expansion Gate:</b> 14 ATR must be actively expanding above its 20 MA.\n"
+                f"   • <b>Structural Breathing Room:</b> 2.0x ATR cushion beyond swing levels to absorb liquidity sweeps.\n"
+                f"   • <b>High-Velocity Target:</b> Direct $1.00–$2.00 scalp target banking fast profits across 100–250 daily trade opportunities.\n\n"
+                f"2. <b>Institutional Risk Shield:</b>\n"
+                f"   • <b>1.0% Capital Budget:</b> Max risk per trade strictly limited to ~$0.30 on $30 capital using 0.01 micro-lots.\n"
+                f"   • <b>Positive Breakeven:</b> Stops automatically shift into green (+3.5 pips) at +0.6R.\n\n"
+                f"3. <b>Live Telemetry & Execution:</b>\n"
+                f"   • <b>Current Equity:</b> ${equity:,.2f} | <b>Active Instrument:</b> {sym} (${bid:,.2f})\n"
+                f"   • <b>Open Exposure:</b> {len(open_pos)} Position(s) (Floating: {fl_sign}${fl_pnl:.2f})\n"
+                f"   • <b>Two-Way Execution:</b> I can execute market buys/sells or close positions on your voice command.\n\n"
+                f"💡 <i>Tip: Activate Google Gemini API in your .env to unlock full autonomous multi-turn neural reasoning!</i>"
             )
 
         # 2. How are you / Bot State Check

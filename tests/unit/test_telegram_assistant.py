@@ -156,3 +156,51 @@ def test_conversational_ai_risk_safety(mock_assistant: TelegramAIAssistant) -> N
     )
     assert "QuantForge Capital Protection Shield" in reply
     assert "Strict Micro-Lot Sizing" in reply
+
+
+def test_conversational_ai_quantforge_knowledge_disclosure(
+    mock_assistant: TelegramAIAssistant,
+) -> None:
+    reply = mock_assistant.process_incoming_message(
+        "5386759666", "tell me about quantforge", user_name="Bamidele"
+    )
+    assert "QuantForge Autonomous Trading Intelligence" in reply
+    assert "Candidate 007 SMC Scalper" in reply
+    assert "50 EMA" in reply
+    assert "1.0% Capital Budget" in reply
+
+
+def test_gemini_ai_query_mock(
+    mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(mock_assistant, "_get_gemini_api_key", lambda: "fake-key")
+    monkeypatch.setattr(
+        mock_assistant,
+        "query_gemini_ai",
+        lambda text, user_name, ctx, chat_id: "🧠 <b>Gemini Quant Intelligence:</b> Market is consolidating around 50 EMA.",
+    )
+    reply = mock_assistant.process_incoming_message(
+        "5386759666", "What is the optimal stop distance today?"
+    )
+    assert "Gemini Quant Intelligence" in reply
+    assert "50 EMA" in reply
+
+
+def test_gemini_ai_action_tag_handling(
+    mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        mock_assistant,
+        "execute_trade_action",
+        lambda side, symbol, quantity: {
+            "success": True,
+            "order_id": "gemini-trade-1",
+            "price": 2736.50,
+        },
+    )
+    action_res = mock_assistant._handle_gemini_actions(
+        "I analyzed the market and executed the setup: [ACTION:BUY_GOLD]",
+        {"bid": 2736.50},
+    )
+    assert "BUY 0.01 XAUUSD @ $2,736.50" in action_res
+    assert "[ACTION:BUY_GOLD]" not in action_res

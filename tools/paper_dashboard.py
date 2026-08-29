@@ -1513,6 +1513,46 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
+        # Fallback to public live ticker if local MT5 EA hasn't pushed a tick yet
+        if not live_quote:
+            try:
+                b_req = urllib.request.Request(
+                    "https://api.binance.com/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+                    headers={"User-Agent": "Mozilla/5.0 QuantForge-Cockpit"},
+                )
+                with urllib.request.urlopen(b_req, timeout=1.5) as b_resp:
+                    if b_resp.status == 200:
+                        b_data = json.loads(b_resp.read().decode("utf-8"))
+                        bid = float(b_data.get("bidPrice", 0.0))
+                        ask = float(b_data.get("askPrice", 0.0))
+                        time_str = datetime.now().strftime("%H:%M:%S")
+                        live_quote = {
+                            "bid": bid,
+                            "ask": ask,
+                            "spread_points": round(ask - bid, 2),
+                            "tick_time": time_str,
+                            "symbol": "#BTCUSD (Live Market)",
+                        }
+                        SNAPSHOT_COUNT += 1
+                        TICK_COUNT += 1
+                        if (
+                            not PRICE_HISTORY
+                            or PRICE_HISTORY[-1]["bid"] != bid
+                            or PRICE_HISTORY[-1]["time"] != time_str
+                        ):
+                            PRICE_HISTORY.append({"time": time_str, "bid": bid, "ask": ask})
+                        LAST_BID = bid
+                        LAST_ASK = ask
+            except Exception:
+                if LAST_BID > 0 and LAST_ASK > 0:
+                    live_quote = {
+                        "bid": LAST_BID,
+                        "ask": LAST_ASK,
+                        "spread_points": round(LAST_ASK - LAST_BID, 2),
+                        "tick_time": datetime.now().strftime("%H:%M:%S"),
+                        "symbol": "#BTCUSD (Cached)",
+                    }
+
         # Calculate tick rate
         elapsed = max(1.0, time.time() - START_TIME)
         tick_rate = round(TICK_COUNT / elapsed, 1)
@@ -1647,6 +1687,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # Quick Strike $1.00 - $2.00 Profit Bank Target (Gold & BTC Scalper)
             # Gold: $1.00 profit (10 pips) / BTC: $1.50 profit ($150 move)
             sensible_profit_target = 1.50 if is_btc else 1.00
+            be_thresh = 40.0 if is_btc else 0.50
+            be_buffer = 15.0 if is_btc else 0.35
 
             sl_dist = 80.0 if is_btc else 1.00
             tp_dist = 150.0 if is_btc else 1.50

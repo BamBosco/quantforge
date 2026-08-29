@@ -135,6 +135,11 @@ def assess_pre_trade_risk(
     if (
         total_correlated_risk
         > snapshot.current_equity * limits.max_correlated_open_risk
+        and not (
+            limits.allow_micro_lot_clamp
+            and quantity == request.minimum_volume
+            and snapshot.correlated_open_risk == 0
+        )
     ):
         reasons.append("correlated open-risk limit would be exceeded")
         return RiskDecision(False, tuple(reasons))

@@ -169,8 +169,8 @@ def test_candidate_007_micro_scalper_multi_trade() -> None:
     strat = Candidate007Strategy(settings=settings)
 
     start = datetime(2026, 8, 29, 10, 0, tzinfo=NEW_YORK)
-    # Warmup 25 bars (enough for atr=7, atr_ma=14, ema=14, channel=5)
-    for i in range(30):
+    # Warmup 40 bars (enough for atr=14, atr_ma=20, ema=30, channel=15)
+    for i in range(40):
         price = Decimal("77500.00") + (Decimal(str(i)) * Decimal("2.0"))
         strat.update_bar(
             make_bar(
@@ -182,19 +182,19 @@ def test_candidate_007_micro_scalper_multi_trade() -> None:
         )
 
     # First scalp signal
-    eval_time_1 = start + timedelta(minutes=31)
+    eval_time_1 = start + timedelta(minutes=41)
     sig1 = strat.evaluate(
         make_market_fact(
-            observed_at=eval_time_1, bid="77600.00", ask="77605.00", instrument="BTCUSD"
+            observed_at=eval_time_1, bid="77650.00", ask="77655.00", instrument="BTCUSD"
         ),
         evaluated_at=eval_time_1,
     )
     assert sig1 is not None
     assert sig1.side == "buy"
 
-    # Advance 3 bars (pass cooldown of 2 bars)
-    for j in range(32, 35):
-        price = Decimal("77610.00") + (Decimal(str(j)) * Decimal("2.0"))
+    # Advance 6 bars (pass cooldown of 5 bars)
+    for j in range(42, 48):
+        price = Decimal("77650.00") + (Decimal(str(j)) * Decimal("2.0"))
         strat.update_bar(
             make_bar(
                 start + timedelta(minutes=j),
@@ -205,10 +205,10 @@ def test_candidate_007_micro_scalper_multi_trade() -> None:
         )
 
     # Second scalp signal allowed!
-    eval_time_2 = start + timedelta(minutes=35)
+    eval_time_2 = start + timedelta(minutes=48)
     sig2 = strat.evaluate(
         make_market_fact(
-            observed_at=eval_time_2, bid="77700.00", ask="77705.00", instrument="BTCUSD"
+            observed_at=eval_time_2, bid="77800.00", ask="77805.00", instrument="BTCUSD"
         ),
         evaluated_at=eval_time_2,
     )

@@ -116,19 +116,19 @@ class Candidate007Settings:
 
     @classmethod
     def for_btcusd_scalper(cls) -> Candidate007Settings:
-        """High-Activity Micro-Scalper preset for BTCUSD."""
+        """High-Activity Micro-Scalper preset for BTCUSD with healthy noise cushion."""
         return cls(
             instrument="BTCUSD",
-            atr_period=7,
-            atr_ma_period=14,
-            ema_trend_period=14,
-            breakout_channel_bars=5,
-            structure_bars=3,
+            atr_period=14,
+            atr_ma_period=20,
+            ema_trend_period=30,
+            breakout_channel_bars=15,
+            structure_bars=4,
             risk_reward_ratio=Decimal("1.5"),
-            min_stop_distance=Decimal("85.0"),
+            min_stop_distance=Decimal("250.0"),
             allow_weekend_trading=True,
-            max_trades_per_day=30,
-            cooldown_bars=2,
+            max_trades_per_day=15,
+            cooldown_bars=5,
             session_start_ny=time(0, 0),
             session_end_ny=time(23, 59),
             exit_time_ny=time(23, 59),
@@ -144,12 +144,14 @@ class Candidate007Settings:
             ema_trend_period=50,
             breakout_channel_bars=20,
             structure_bars=5,
-            min_stop_distance=Decimal("1.5"),
+            risk_reward_ratio=Decimal("1.5"),
+            min_stop_distance=Decimal("2.50"),
             allow_weekend_trading=False,
-            max_trades_per_day=1,
+            max_trades_per_day=3,
+            cooldown_bars=5,
             session_start_ny=time(8, 30),
-            session_end_ny=time(12, 30),
-            exit_time_ny=time(13, 30),
+            session_end_ny=time(16, 30),
+            exit_time_ny=time(17, 0),
         )
 
 

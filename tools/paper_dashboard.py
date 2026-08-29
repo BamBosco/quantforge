@@ -1191,7 +1191,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 order_id = f"qf-{int(time.time()*1000)}"
                 is_btc = "BTC" in sym.upper()
                 # Enhanced breathing room for Gold & Bitcoin to absorb liquidity wicks/pullbacks
-                dist = 110.0 if is_btc else 2.5
+                dist = 320.0 if is_btc else 3.50
                 sl_price = cur_price - dist if side == "buy" else cur_price + dist
                 tp_price = cur_price + (dist * 1.5) if side == "buy" else cur_price - (dist * 1.5)
 
@@ -1635,8 +1635,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             # Check dynamic Breakeven activation status with Positive Profit Offset
             ep = pos.get("open_price", 0.0)
             is_btc = "BTC" in pos.get("instrument", "").upper()
-            be_thresh = 40.0 if is_btc else 1.00 # Activate once price is +$40 on BTC / +$1.00 on Gold
-            be_buffer = 15.0 if is_btc else 0.35 # Lock in positive profit past entry point!
+            be_thresh = 160.0 if is_btc else 1.80 # Activate once price is +$160 on BTC (0.5R) / +$1.80 on Gold
+            be_buffer = 30.0 if is_btc else 0.40 # Lock in positive profit past entry point!
             is_be = (cp - ep >= be_thresh) if pos["side"] == "buy" else (ep - cp >= be_thresh) if ep > 0 else False
             pos_copy["breakeven_active"] = is_be
             pos_copy["breakeven_price"] = (ep + be_buffer) if pos["side"] == "buy" else (ep - be_buffer)

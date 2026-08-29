@@ -54,9 +54,7 @@ def load_xauusd_research_stage_a_settings(path: Path) -> XAUUSDResearchStageASet
         session_start=_time(session, "start"),
         session_end=_time(session, "end"),
         review_by_utc=_timestamp(review, "review_by_utc"),
-        execution_deviation_points=_integer(
-            execution, "deviation_points", minimum=0
-        ),
+        execution_deviation_points=_integer(execution, "deviation_points", minimum=0),
     )
     if settings.maximum_spread_points != 760:
         raise XAUUSDResearchStageAConfigurationError(
@@ -94,9 +92,7 @@ def _required_flags(raw: dict[str, Any]) -> None:
         "stage_a_send_allowed",
     ):
         if execution.get(field) is not False:
-            raise XAUUSDResearchStageAConfigurationError(
-                f"{field} must remain false"
-            )
+            raise XAUUSDResearchStageAConfigurationError(f"{field} must remain false")
 
 
 def _table(raw: dict[str, Any], name: str) -> dict[str, Any]:

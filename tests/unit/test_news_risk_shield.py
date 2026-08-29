@@ -1,12 +1,15 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 from quantforge.risk.news_filter import MacroEvent, NewsRiskShield
 
 
 def test_news_risk_shield_blocks_during_cpi_window():
-    shield = NewsRiskShield(pre_event_blackout_minutes=15, post_event_blackout_minutes=15)
-    
+    shield = NewsRiskShield(
+        pre_event_blackout_minutes=15, post_event_blackout_minutes=15
+    )
+
     # Scheduled CPI release at 12:30 UTC
-    cpi_time = datetime(2026, 9, 10, 12, 30, tzinfo=timezone.utc)
+    cpi_time = datetime(2026, 9, 10, 12, 30, tzinfo=UTC)
     event = MacroEvent(
         title="US Core CPI (YoY)",
         country="US",
@@ -41,7 +44,7 @@ def test_news_risk_shield_blocks_during_cpi_window():
 
 def test_news_risk_shield_spread_protection():
     shield = NewsRiskShield(max_allowed_spread_dollars=0.50)
-    
+
     # Normal spread ($0.20 on Gold)
     safe, msg = shield.is_spread_safe(0.20)
     assert safe is True

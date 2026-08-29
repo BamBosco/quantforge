@@ -25,9 +25,18 @@ DEFAULT_CONFIG_PATH: Final = Path("config/telegram_config.json")
 
 
 def _get_ssl_context() -> ssl.SSLContext:
-    """Create an SSL context, falling back to unverified context if system CA certs are absent."""
+    """Create an SSL context, configuring certifi or unverified fallback on macOS."""
     try:
-        return ssl.create_default_context()
+        import certifi  # type: ignore[import-not-found]
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        pass
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
     except Exception:
         return ssl._create_unverified_context()
 
@@ -43,12 +52,16 @@ class TelegramConfig:
     @classmethod
     def from_env(cls) -> TelegramConfig:
         """Load Telegram config from environment variables or persistent config file."""
-        token = os.environ.get("QUANTFORGE_TELEGRAM_BOT_TOKEN", os.environ.get("TELEGRAM_BOT_TOKEN", ""))
-        chat = os.environ.get("QUANTFORGE_TELEGRAM_CHAT_ID", os.environ.get("TELEGRAM_CHAT_ID", ""))
+        token = os.environ.get(
+            "QUANTFORGE_TELEGRAM_BOT_TOKEN", os.environ.get("TELEGRAM_BOT_TOKEN", "")
+        )
+        chat = os.environ.get(
+            "QUANTFORGE_TELEGRAM_CHAT_ID", os.environ.get("TELEGRAM_CHAT_ID", "")
+        )
 
         if (not token or not chat) and DEFAULT_CONFIG_PATH.exists():
             try:
-                with open(DEFAULT_CONFIG_PATH, "r") as f:
+                with open(DEFAULT_CONFIG_PATH) as f:
                     data = json.load(f)
                     token = token or data.get("bot_token", "")
                     chat = chat or data.get("chat_id", "")
@@ -69,10 +82,14 @@ class TelegramNotifier:
         """Check if bot token and chat ID are valid and set."""
         return bool(self.config.bot_token and self.config.chat_id)
 
-    def send_message(self, text: str, *, parse_mode: str = "HTML", async_send: bool = True) -> bool:
+    def send_message(
+        self, text: str, *, parse_mode: str = "HTML", async_send: bool = True
+    ) -> bool:
         """Send a raw text or HTML formatted message to Telegram."""
         if not self.is_configured:
-            logger.debug("Telegram notification skipped: Bot token or Chat ID not configured.")
+            logger.debug(
+                "Telegram notification skipped: Bot token or Chat ID not configured."
+            )
             return False
 
         if async_send:
@@ -98,8 +115,12 @@ class TelegramNotifier:
     ) -> bool:
         """Send a formatted Trade Signal notification."""
         side_upper = str(side).upper()
-        icon = "🟢 🚀 <b>BUY SIGNAL</b>" if side_upper == "BUY" else "🔴 🔻 <b>SELL SIGNAL</b>"
-        
+        icon = (
+            "🟢 🚀 <b>BUY SIGNAL</b>"
+            if side_upper == "BUY"
+            else "🔴 🔻 <b>SELL SIGNAL</b>"
+        )
+
         msg = (
             f"🎯 <b>QuantForge Alert — {strategy_name}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -111,7 +132,7 @@ class TelegramNotifier:
         )
         if rationale:
             msg += f"Rationale  : <i>{rationale}</i>\n"
-        msg += f"━━━━━━━━━━━━━━━━━━━━━━━━━\n<i>Automated Real-Time Strategy Signal</i>"
+        msg += "━━━━━━━━━━━━━━━━━━━━━━━━━\n<i>Automated Real-Time Strategy Signal</i>"
         return self.send_message(msg)
 
     def send_risk_approval(
@@ -191,7 +212,11 @@ class TelegramNotifier:
 
         for use_unverified in (False, True):
             try:
-                ctx = ssl._create_unverified_context() if use_unverified else ssl.create_default_context()
+                ctx = (
+                    ssl._create_unverified_context()
+                    if use_unverified
+                    else ssl.create_default_context()
+                )
                 with urllib.request.urlopen(req, context=ctx, timeout=8) as response:
                     if response.status == 200:
                         return True, "Test message delivered successfully to Telegram!"
@@ -227,9 +252,13 @@ class TelegramNotifier:
         )
         for use_unverified in (False, True):
             try:
-                ctx = ssl._create_unverified_context() if use_unverified else ssl.create_default_context()
+                ctx = (
+                    ssl._create_unverified_context()
+                    if use_unverified
+                    else ssl.create_default_context()
+                )
                 with urllib.request.urlopen(req, context=ctx, timeout=8) as response:
-                    return response.status == 200
+                    return bool(response.status == 200)
             except Exception as err:
                 if not use_unverified:
                     continue

@@ -115,9 +115,7 @@ def test_rejects_wrong_or_missing_broker_facts(changes: dict[str, object]) -> No
         ({"entry_price": 2000, "stop_loss": 1999, "take_profit": 2001}, None),
     ],
 )
-def test_entry_stop_edge_cases(
-    changes: dict[str, object], reason: str | None
-) -> None:
+def test_entry_stop_edge_cases(changes: dict[str, object], reason: str | None) -> None:
     result = evaluate(trade_intent=intent(**changes))
     if reason is None:
         assert result.status == "approved"
@@ -127,9 +125,7 @@ def test_entry_stop_edge_cases(
 
 @pytest.mark.parametrize("risk_fraction", ["0", "1.01", "-0.1"])
 def test_risk_fraction_must_be_bounded(risk_fraction: str) -> None:
-    result = evaluate(
-        policy=XAUUSDRiskPolicy(Decimal(risk_fraction), Decimal("100"))
-    )
+    result = evaluate(policy=XAUUSDRiskPolicy(Decimal(risk_fraction), Decimal("100")))
     assert (
         "risk-per-trade policy must be greater than zero and at most one"
         in result.reasons

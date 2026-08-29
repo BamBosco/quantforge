@@ -61,9 +61,7 @@ def _terminal_clock(value: Any, path: str) -> str:
             return text
         except ValueError:
             pass
-    raise ObservationValidationError(
-        f"{path} must be an MT5 terminal timestamp"
-    )
+    raise ObservationValidationError(f"{path} must be an MT5 terminal timestamp")
 
 
 def _integer(value: Any, path: str, *, minimum: int | None = None) -> int:

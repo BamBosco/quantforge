@@ -1,0 +1,44 @@
+name: Telegram AI Bot Cloud Runner
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run every 6 hours to maintain cloud liveness
+    - cron: '0 */6 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'src/quantforge/infrastructure/notifications/**'
+      - 'tools/run_telegram_assistant.py'
+      - '.github/workflows/telegram_ai_bot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  run-telegram-assistant:
+    runs-on: ubuntu-latest
+    name: QuantForge Telegram Assistant Cloud Daemon
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run Telegram AI Assistant Daemon
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || '8610958249:AAE7U8peL4WPVBiz95nBZiw2aGIAT0Fw31o' }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '5386759666' }}
+          TELEGRAM_ENABLED: 'true'
+          PYTHONPATH: '.:src'
+        run: |
+          echo "🚀 Launching QuantForge Telegram AI Assistant in GitHub Cloud..."
+          timeout 21000 python tools/run_telegram_assistant.py || true

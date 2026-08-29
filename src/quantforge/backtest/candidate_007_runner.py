@@ -47,7 +47,9 @@ class Candidate007BacktestRun:
     summary: Candidate007Summary
 
 
-def summarize_candidate_007_run(results: Sequence[ReplaySessionResult]) -> Candidate007Summary:
+def summarize_candidate_007_run(
+    results: Sequence[ReplaySessionResult],
+) -> Candidate007Summary:
     """Compute standard quantitative performance metrics from session outcomes."""
     trades = [r for r in results if r.r_multiple is not None]
     wins = [r for r in trades if r.r_multiple > 0]
@@ -56,14 +58,24 @@ def summarize_candidate_007_run(results: Sequence[ReplaySessionResult]) -> Candi
     completed_trades = len(trades)
     win_count = len(wins)
     loss_count = len(losses)
-    win_rate = (Decimal(win_count) / Decimal(completed_trades) * 100) if completed_trades > 0 else Decimal("0")
+    win_rate = (
+        (Decimal(win_count) / Decimal(completed_trades) * 100)
+        if completed_trades > 0
+        else Decimal("0")
+    )
 
     total_r = sum((r.r_multiple for r in trades), Decimal("0"))
-    mean_r = (total_r / Decimal(completed_trades)) if completed_trades > 0 else Decimal("0")
+    mean_r = (
+        (total_r / Decimal(completed_trades)) if completed_trades > 0 else Decimal("0")
+    )
 
     gross_profit = sum((r.r_multiple for r in wins), Decimal("0"))
     gross_loss = abs(sum((r.r_multiple for r in losses), Decimal("0")))
-    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (Decimal("999.0") if gross_profit > 0 else Decimal("0"))
+    profit_factor = (
+        (gross_profit / gross_loss)
+        if gross_loss > 0
+        else (Decimal("999.0") if gross_profit > 0 else Decimal("0"))
+    )
 
     # Compute maximum drawdown in R-multiples
     running_r = Decimal("0")
@@ -133,14 +145,20 @@ def run_candidate_007_backtest(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run Candidate 007 historical backtest")
+    parser = argparse.ArgumentParser(
+        description="Run Candidate 007 historical backtest"
+    )
     parser.add_argument("--data", type=Path, required=True, help="Path to M1 CSV file")
-    parser.add_argument("--timezone", type=str, default="America/New_York", help="Source timezone")
+    parser.add_argument(
+        "--timezone", type=str, default="America/New_York", help="Source timezone"
+    )
     args = parser.parse_args()
 
     print(f"Loading M1 bars from: {args.data} ...")
     bars = load_mt5_minute_bars(args.data, source_timezone=args.timezone)
-    print(f"Loaded {len(bars)} M1 bars. Running Candidate 007 simulation across cost scenarios...")
+    print(
+        f"Loaded {len(bars)} M1 bars. Running Candidate 007 simulation across cost scenarios..."
+    )
 
     for slip in (Decimal("0"), Decimal("1"), Decimal("3")):
         cfg = Candidate007SimulationSettings(additional_slippage_points=slip)
@@ -148,7 +166,9 @@ def main() -> None:
         s = run.summary
         print(f"\n--- Cost Scenario: +{slip} pts Slippage ---")
         print(f"  Sessions Evaluated : {s.total_sessions}")
-        print(f"  Completed Trades   : {s.completed_trades} (Wins: {s.wins}, Losses: {s.losses})")
+        print(
+            f"  Completed Trades   : {s.completed_trades} (Wins: {s.wins}, Losses: {s.losses})"
+        )
         print(f"  Win Rate           : {s.win_rate_pct}%")
         print(f"  Total Return       : {s.total_r} R")
         print(f"  Mean Return / Trade: {s.mean_r} R")

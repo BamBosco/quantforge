@@ -49,7 +49,7 @@ def test_loads_explicit_policy(tmp_path: Path) -> None:
             "maximum_position_size must be greater than zero",
         ),
         (
-            "[risk]\nrisk_per_trade = \"NaN\"\nmaximum_position_size = 2\n",
+            '[risk]\nrisk_per_trade = "NaN"\nmaximum_position_size = 2\n',
             "risk_per_trade must be a finite number",
         ),
     ],

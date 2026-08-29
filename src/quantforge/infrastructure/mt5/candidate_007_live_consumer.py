@@ -6,9 +6,9 @@ and the QuantForge Paper Trading Runtime, dispatching real-time audio and Telegr
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
-from typing import Callable
 
 from quantforge.application.paper_runtime import PaperRuntimeHost, RuntimeCycleResult
 from quantforge.backtest.models import MinuteBar
@@ -26,7 +26,8 @@ class Candidate007LiveConsumer:
         host: PaperRuntimeHost,
         strategy: Candidate007Strategy,
         alert_manager: AlertManager | None = None,
-        on_cycle: Callable[[RuntimeCycleResult, ObservationEnvelope], None] | None = None,
+        on_cycle: Callable[[RuntimeCycleResult, ObservationEnvelope], None]
+        | None = None,
     ) -> None:
         self.host = host
         self.strategy = strategy
@@ -43,7 +44,9 @@ class Candidate007LiveConsumer:
 
         # 1. Ingest newly completed M1 candle if present in observation payload
         candles = observation.payload.get("candles", {})
-        completed_candles = candles.get("completed", []) if isinstance(candles, dict) else []
+        completed_candles = (
+            candles.get("completed", []) if isinstance(candles, dict) else []
+        )
         if completed_candles:
             latest_candle = completed_candles[-1]
             candle_time = latest_candle.get("open_time_utc")
@@ -62,7 +65,9 @@ class Candidate007LiveConsumer:
                 self._last_completed_bar_time = candle_time
 
         # 2. Evaluate real-time market quote through Strategy -> Risk Gate -> Paper Executor
-        result = self.host.process(observation, evaluated_at=observation.observed_at_utc)
+        result = self.host.process(
+            observation, evaluated_at=observation.observed_at_utc
+        )
 
         # 3. Trigger Telegram & Sound Alerts on events
         self.alert_manager.process_cycle_result(result, observation)

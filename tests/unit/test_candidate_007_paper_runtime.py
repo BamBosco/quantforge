@@ -1,13 +1,12 @@
 """Unit tests for Candidate 007 Paper Trading Simulation Integration."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from quantforge.application.candidate_007_paper_demo import (
     build_candidate_007_paper_host,
-    make_observation,
     run_candidate_007_paper_simulation,
 )
 from quantforge.backtest.models import MinuteBar
@@ -25,12 +24,12 @@ def make_bar(
     o = Decimal(open_)
     c = Decimal(close)
     h = Decimal(high) if high is not None else max(o, c) + Decimal("1.00")
-    l = Decimal(low) if low is not None else min(o, c) - Decimal("1.00")
+    low_val = Decimal(low) if low is not None else min(o, c) - Decimal("1.00")
     return MinuteBar(
         timestamp=timestamp,
         open=o,
         high=h,
-        low=l,
+        low=low_val,
         close=c,
         tick_volume=10,
         spread_points=2,

@@ -33,7 +33,13 @@ def test_inspects_timezone_neutral_mt5_bar_evidence(tmp_path: Path) -> None:
     assert evidence.start_terminal_time.isoformat() == "2026-08-14T01:00:00"
     assert evidence.end_terminal_time.isoformat() == "2026-08-15T01:00:00"
     assert evidence.spread_percentiles == (
-        (1, 10), (5, 10), (50, 20), (90, 30), (95, 30), (99, 30), (100, 30)
+        (1, 10),
+        (5, 10),
+        (50, 20),
+        (90, 30),
+        (95, 30),
+        (99, 30),
+        (100, 30),
     )
     assert evidence.complete_session_row_count == 2
     assert evidence.incomplete_terminal_dates == ("2026-08-15",)

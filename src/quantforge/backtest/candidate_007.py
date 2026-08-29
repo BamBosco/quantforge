@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
-from typing import Sequence
 from zoneinfo import ZoneInfo
 
 from quantforge.backtest.models import MinuteBar
@@ -15,7 +15,6 @@ from quantforge.backtest.replay import (
     SimulationEvent,
     SimulationEventKind,
 )
-from quantforge.backtest.validation import ValidationSession
 
 NEW_YORK = ZoneInfo("America/New_York")
 
@@ -52,7 +51,9 @@ def simulate_candidate_007_session(
             outcome=SessionOutcome.INVALID_DATA,
             events=(
                 SimulationEvent(
-                    timestamp=datetime.combine(session_day, time(0, 0), tzinfo=NEW_YORK).astimezone(UTC),
+                    timestamp=datetime.combine(
+                        session_day, time(0, 0), tzinfo=NEW_YORK
+                    ).astimezone(UTC),
                     kind=SimulationEventKind.INVALID_DATA,
                     detail="missing session bars",
                 ),
@@ -93,7 +94,11 @@ def simulate_candidate_007_session(
         if i >= settings.atr_period:
             window = all_bars[i - settings.atr_period + 1 : i + 1]
             trs = [
-                max(window[j].high - window[j].low, abs(window[j].high - window[j - 1].close), abs(window[j].low - window[j - 1].close))
+                max(
+                    window[j].high - window[j].low,
+                    abs(window[j].high - window[j - 1].close),
+                    abs(window[j].low - window[j - 1].close),
+                )
                 for j in range(1, len(window))
             ]
             trs.append(tr)
@@ -118,24 +123,48 @@ def simulate_candidate_007_session(
             # Check entry eligibility within session window
             if settings.session_start_ny <= ny_time <= settings.session_end_ny:
                 # Indicators available at prior bar close
-                recent_channel = all_bars[bar_idx_in_all - settings.breakout_channel_bars : bar_idx_in_all]
+                recent_channel = all_bars[
+                    bar_idx_in_all - settings.breakout_channel_bars : bar_idx_in_all
+                ]
                 channel_high = max(b.high for b in recent_channel)
                 channel_low = min(b.low for b in recent_channel)
 
-                current_atr = atr_history[bar_idx_in_all - settings.atr_period] if len(atr_history) > (bar_idx_in_all - settings.atr_period) else Decimal("1.5")
-                atr_slice = atr_history[max(0, bar_idx_in_all - settings.atr_period - settings.atr_ma_period) : bar_idx_in_all - settings.atr_period]
-                atr_ma = sum(atr_slice) / Decimal(len(atr_slice)) if atr_slice else current_atr
+                current_atr = (
+                    atr_history[bar_idx_in_all - settings.atr_period]
+                    if len(atr_history) > (bar_idx_in_all - settings.atr_period)
+                    else Decimal("1.5")
+                )
+                atr_slice = atr_history[
+                    max(
+                        0, bar_idx_in_all - settings.atr_period - settings.atr_ma_period
+                    ) : bar_idx_in_all - settings.atr_period
+                ]
+                atr_ma = (
+                    sum(atr_slice) / Decimal(len(atr_slice))
+                    if atr_slice
+                    else current_atr
+                )
 
                 spread = Decimal(bar.spread_points or 2) * settings.point_size
 
                 # Long Entry Condition: Volatility expanding & Trend bullish & Breakout high
-                if current_atr >= atr_ma and bar.high > channel_high and bar.close > ema_value:
+                if (
+                    current_atr >= atr_ma
+                    and bar.high > channel_high
+                    and bar.close > ema_value
+                ):
                     in_position = True
                     entry_side = "buy"
-                    entry_price = max(channel_high + settings.point_size, bar.open) + (spread / Decimal("2")) + slip
+                    entry_price = (
+                        max(channel_high + settings.point_size, bar.open)
+                        + (spread / Decimal("2"))
+                        + slip
+                    )
                     risk_distance = max(current_atr, settings.min_stop_distance)
                     stop_loss = entry_price - risk_distance
-                    take_profit = entry_price + (risk_distance * settings.risk_reward_ratio)
+                    take_profit = entry_price + (
+                        risk_distance * settings.risk_reward_ratio
+                    )
                     events.append(
                         SimulationEvent(
                             timestamp=bar.timestamp,
@@ -147,13 +176,23 @@ def simulate_candidate_007_session(
                     continue
 
                 # Short Entry Condition: Volatility expanding & Trend bearish & Breakout low
-                elif current_atr >= atr_ma and bar.low < channel_low and bar.close < ema_value:
+                elif (
+                    current_atr >= atr_ma
+                    and bar.low < channel_low
+                    and bar.close < ema_value
+                ):
                     in_position = True
                     entry_side = "sell"
-                    entry_price = min(channel_low - settings.point_size, bar.open) - (spread / Decimal("2")) - slip
+                    entry_price = (
+                        min(channel_low - settings.point_size, bar.open)
+                        - (spread / Decimal("2"))
+                        - slip
+                    )
                     risk_distance = max(current_atr, settings.min_stop_distance)
                     stop_loss = entry_price + risk_distance
-                    take_profit = entry_price - (risk_distance * settings.risk_reward_ratio)
+                    take_profit = entry_price - (
+                        risk_distance * settings.risk_reward_ratio
+                    )
                     events.append(
                         SimulationEvent(
                             timestamp=bar.timestamp,
@@ -306,7 +345,11 @@ def simulate_candidate_007_session(
         assert risk_distance is not None
         last_bar = session_bars[-1]
         exit_price = last_bar.close
-        r_mult = ((exit_price - entry_price) if entry_side == "buy" else (entry_price - exit_price)) / risk_distance
+        r_mult = (
+            (exit_price - entry_price)
+            if entry_side == "buy"
+            else (entry_price - exit_price)
+        ) / risk_distance
         return ReplaySessionResult(
             session_day=session_day,
             outcome=SessionOutcome.FORCED_EXIT,

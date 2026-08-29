@@ -1,12 +1,14 @@
 """Unit and integration tests for Candidate 007 Live MT5 Observation Bridge."""
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from http import HTTPStatus
 from pathlib import Path
 from urllib.request import HTTPError, Request, urlopen
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from quantforge.infrastructure.mt5.candidate_007_live_service import (
     create_candidate_007_live_bridge,
@@ -96,13 +98,15 @@ def test_candidate_007_live_bridge_server(tmp_path: Path) -> None:
     journal_path = tmp_path / "paper_journal.sqlite3"
     obs_log_path = tmp_path / "mt5_obs.sqlite3"
 
-    server, strategy, portfolio, journal, execution_queue = create_candidate_007_live_bridge(
-        host="127.0.0.1",
-        port=0,  # OS assigned ephemeral port
-        token=token,
-        journal_path=journal_path,
-        obs_log_path=obs_log_path,
-        initial_balance=Decimal("10000"),
+    server, strategy, portfolio, journal, execution_queue = (
+        create_candidate_007_live_bridge(
+            host="127.0.0.1",
+            port=0,  # OS assigned ephemeral port
+            token=token,
+            journal_path=journal_path,
+            obs_log_path=obs_log_path,
+            initial_balance=Decimal("10000"),
+        )
     )
 
     port = server.server_address[1]
@@ -111,6 +115,7 @@ def test_candidate_007_live_bridge_server(tmp_path: Path) -> None:
 
     try:
         import threading
+
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
@@ -123,7 +128,7 @@ def test_candidate_007_live_bridge_server(tmp_path: Path) -> None:
         bad_req = Request(url, data=b"{}", method="POST")
         try:
             urlopen(bad_req, timeout=3)
-            assert False, "Should have been rejected"
+            pytest.fail("Should have been rejected")
         except HTTPError as e:
             assert e.code == HTTPStatus.UNAUTHORIZED
 

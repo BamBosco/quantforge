@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import collections
 import logging
-from dataclasses import dataclass, field
 from threading import Lock
-from typing import Any
 
 from quantforge.infrastructure.mt5.execution_contracts import (
     ExecutionReceipt,
@@ -25,7 +23,9 @@ class AutoExecutionQueue:
 
     def __init__(self, max_size: int = 50) -> None:
         self._lock = Lock()
-        self._pending: collections.deque[OrderRequest] = collections.deque(maxlen=max_size)
+        self._pending: collections.deque[OrderRequest] = collections.deque(
+            maxlen=max_size
+        )
         self._history: dict[str, ExecutionReceipt] = {}
         self._auto_trading_enabled: bool = True
 
@@ -43,10 +43,14 @@ class AutoExecutionQueue:
         """Enqueue an approved order for MT5 execution."""
         with self._lock:
             if not self._auto_trading_enabled:
-                logger.warning(f"Order {order.order_id} rejected: Auto-trading is paused.")
+                logger.warning(
+                    f"Order {order.order_id} rejected: Auto-trading is paused."
+                )
                 return False
             self._pending.append(order)
-            logger.info(f"Queued order {order.order_id} for {order.symbol} {order.side} {order.volume} lots.")
+            logger.info(
+                f"Queued order {order.order_id} for {order.symbol} {order.side} {order.volume} lots."
+            )
             return True
 
     def pop_pending_orders(self) -> list[OrderRequest]:

@@ -6,11 +6,9 @@ during high-impact macroeconomic releases (CPI, NFP, FOMC, Fed Rate Decisions).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Sequence
-import json
-import urllib.request
+from datetime import UTC, datetime, timedelta
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +47,9 @@ class NewsRiskShield:
                 window_start = event.scheduled_at_utc - self.pre_event_blackout
                 window_end = event.scheduled_at_utc + self.post_event_blackout
                 if window_start <= current_time_utc <= window_end:
-                    mins_to_event = int((event.scheduled_at_utc - current_time_utc).total_seconds() / 60)
+                    mins_to_event = int(
+                        (event.scheduled_at_utc - current_time_utc).total_seconds() / 60
+                    )
                     if mins_to_event > 0:
                         reason = f"🛑 High-Impact News Blackout: '{event.title}' in {mins_to_event} min ({event.scheduled_at_utc.strftime('%H:%M')} UTC)"
                     else:
@@ -61,10 +61,13 @@ class NewsRiskShield:
     def is_spread_safe(self, current_spread_dollars: float) -> tuple[bool, str]:
         """Protect against broker spread widening during volatility spikes."""
         if current_spread_dollars > self.max_allowed_spread_dollars:
-            return False, f"🛑 Spread Spike Protection: Spread (${current_spread_dollars:.2f}) exceeds max allowed (${self.max_allowed_spread_dollars:.2f})"
+            return (
+                False,
+                f"🛑 Spread Spike Protection: Spread (${current_spread_dollars:.2f}) exceeds max allowed (${self.max_allowed_spread_dollars:.2f})",
+            )
         return True, "Spread Normal"
 
     def update_calendar_events(self, events: Sequence[MacroEvent]) -> None:
         """Inject upcoming calendar events."""
         self._cached_events = list(events)
-        self._last_fetch_utc = datetime.now(timezone.utc)
+        self._last_fetch_utc = datetime.now(UTC)

@@ -238,9 +238,12 @@ def test_bridge_can_reject_snapshots_for_another_symbol(tmp_path: Path) -> None:
         import sqlite3
 
         with sqlite3.connect(database) as connection:
-            assert connection.execute(
-                "SELECT count(*) FROM observation_event"
-            ).fetchone()[0] == 0
+            assert (
+                connection.execute("SELECT count(*) FROM observation_event").fetchone()[
+                    0
+                ]
+                == 0
+            )
     finally:
         server.shutdown()
         server.close()
@@ -309,8 +312,7 @@ def test_bridge_preserves_terminal_clock_provenance(tmp_path: Path) -> None:
         )
         payload = json.loads(latest.getresponse().read())
         assert (
-            payload["time_provenance"]["terminal_server_time"]
-            == "2026.08.21 16:00:00"
+            payload["time_provenance"]["terminal_server_time"] == "2026.08.21 16:00:00"
         )
     finally:
         server.shutdown()

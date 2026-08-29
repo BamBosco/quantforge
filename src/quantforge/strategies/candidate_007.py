@@ -14,8 +14,8 @@ from typing import Final, Literal
 from uuid import NAMESPACE_URL, uuid5
 from zoneinfo import ZoneInfo
 
-from quantforge.backtest.models import MinuteBar
 from quantforge.application.trading_pipeline import MarketFact, TradingSignal
+from quantforge.backtest.models import MinuteBar
 
 NEW_YORK: Final = ZoneInfo("America/New_York")
 
@@ -59,9 +59,11 @@ class Candidate007Settings:
         )
 
     @classmethod
-    def for_hybrid_dynamic_scalper(cls, instrument: str = "XAUUSD") -> Candidate007Settings:
+    def for_hybrid_dynamic_scalper(
+        cls, instrument: str = "XAUUSD"
+    ) -> Candidate007Settings:
         """Hybrid Dynamic Scalper with Active Micro-Profit Banking.
-        
+
         Features:
         - Rapid turnover: 10 to 20 trades per day during active volume.
         - Dynamic Profit Target: +zsh.80 to +.50 per trade.
@@ -89,7 +91,7 @@ class Candidate007Settings:
     @classmethod
     def for_new_york_gold_scalper(cls) -> Candidate007Settings:
         """Active Session Scalper for XAUUSD Gold (New York Session).
-        
+
         Targets:
         - zsh.50 to .50 dynamic profit banking per trade.
         - Active intra-day frequency: 10 to 25 trades per day during high volume.
@@ -186,7 +188,13 @@ class Candidate007Strategy:
             for i in range(1, len(recent_bars)):
                 pb = recent_bars[i - 1]
                 cb = recent_bars[i]
-                trs.append(max(cb.high - cb.low, abs(cb.high - pb.close), abs(cb.low - pb.close)))
+                trs.append(
+                    max(
+                        cb.high - cb.low,
+                        abs(cb.high - pb.close),
+                        abs(cb.low - pb.close),
+                    )
+                )
             trs.append(tr)
             current_atr = sum(trs) / Decimal(len(trs))
             self._atr_history.append(current_atr)
@@ -196,7 +204,9 @@ class Candidate007Strategy:
         if self._ema_value is None:
             self._ema_value = bar.close
         else:
-            self._ema_value = (bar.close * alpha) + (self._ema_value * (Decimal("1") - alpha))
+            self._ema_value = (bar.close * alpha) + (
+                self._ema_value * (Decimal("1") - alpha)
+            )
 
     def evaluate(
         self, market: MarketFact, *, evaluated_at: datetime
@@ -214,11 +224,18 @@ class Candidate007Strategy:
             return None
 
         # Session timing check
-        if not (self.settings.session_start_ny <= current_time <= self.settings.session_end_ny):
+        if not (
+            self.settings.session_start_ny
+            <= current_time
+            <= self.settings.session_end_ny
+        ):
             return None
 
         # Daily trade limit & Cooldown check
-        if self._daily_trade_counts.get(date_key, 0) >= self.settings.max_trades_per_day:
+        if (
+            self._daily_trade_counts.get(date_key, 0)
+            >= self.settings.max_trades_per_day
+        ):
             return None
         if self._bars_since_last_trade < self.settings.cooldown_bars:
             return None
@@ -236,9 +253,9 @@ class Candidate007Strategy:
 
         current_atr = self._atr_history[-1]
         if len(self._atr_history) >= self.settings.atr_ma_period:
-            atr_ma = sum(list(self._atr_history)[-self.settings.atr_ma_period :]) / Decimal(
-                self.settings.atr_ma_period
-            )
+            atr_ma = sum(
+                list(self._atr_history)[-self.settings.atr_ma_period :]
+            ) / Decimal(self.settings.atr_ma_period)
         else:
             atr_ma = sum(self._atr_history) / Decimal(len(self._atr_history))
 
@@ -274,27 +291,45 @@ class Candidate007Strategy:
         stop_dist = max(current_atr * Decimal("1.5"), self.settings.min_stop_distance)
 
         # 4. Long Condition: Channel Breakout + Bullish Structure (HH/HL) + Above 50 EMA
-        if market.ask > channel_high and market.bid > self._ema_value and (is_bullish_structure or not self.settings.structure_bars):
+        if (
+            market.ask > channel_high
+            and market.bid > self._ema_value
+            and (is_bullish_structure or not self.settings.structure_bars)
+        ):
             side = "buy"
             entry_price = market.ask
             # Structural swing stop placed safely below the Higher Low
             lowest_swing = min(b.low for b in recent_struct_bars)
-            stop_loss = min(lowest_swing - (current_atr * Decimal("0.5")), entry_price - stop_dist)
-            target_price = entry_price + (abs(entry_price - stop_loss) * self.settings.risk_reward_ratio)
+            stop_loss = min(
+                lowest_swing - (current_atr * Decimal("0.5")), entry_price - stop_dist
+            )
+            target_price = entry_price + (
+                abs(entry_price - stop_loss) * self.settings.risk_reward_ratio
+            )
 
         # 5. Short Condition: Channel Breakout + Bearish Structure (LL/LH) + Below 50 EMA
-        elif market.bid < channel_low and market.ask < self._ema_value and (is_bearish_structure or not self.settings.structure_bars):
+        elif (
+            market.bid < channel_low
+            and market.ask < self._ema_value
+            and (is_bearish_structure or not self.settings.structure_bars)
+        ):
             side = "sell"
             entry_price = market.bid
             # Structural swing stop placed safely above the Lower High
             highest_swing = max(b.high for b in recent_struct_bars)
-            stop_loss = max(highest_swing + (current_atr * Decimal("0.5")), entry_price + stop_dist)
-            target_price = entry_price - (abs(stop_loss - entry_price) * self.settings.risk_reward_ratio)
+            stop_loss = max(
+                highest_swing + (current_atr * Decimal("0.5")), entry_price + stop_dist
+            )
+            target_price = entry_price - (
+                abs(stop_loss - entry_price) * self.settings.risk_reward_ratio
+            )
 
         if side is None:
             return None
 
-        self._daily_trade_counts[date_key] = self._daily_trade_counts.get(date_key, 0) + 1
+        self._daily_trade_counts[date_key] = (
+            self._daily_trade_counts.get(date_key, 0) + 1
+        )
         self._bars_since_last_trade = 0
         trade_num = self._daily_trade_counts[date_key]
 
@@ -302,7 +337,9 @@ class Candidate007Strategy:
             session_time.date(), self.settings.exit_time_ny, tzinfo=NEW_YORK
         ).astimezone(UTC)
 
-        struct_desc = "HH/HL Bullish Structure" if side == "buy" else "LL/LH Bearish Structure"
+        struct_desc = (
+            "HH/HL Bullish Structure" if side == "buy" else "LL/LH Bearish Structure"
+        )
 
         return TradingSignal(
             strategy_id=self.strategy_id,
@@ -328,7 +365,10 @@ class Candidate007Strategy:
         norm_expected = self.settings.instrument.strip("#._/ ").replace("/", "").upper()
         norm_market = market.instrument.strip("#._/ ").replace("/", "").upper()
         return bool(
-            (market.instrument == self.settings.instrument or norm_market == norm_expected)
+            (
+                market.instrument == self.settings.instrument
+                or norm_market == norm_expected
+            )
             and market.observed_at.tzinfo is not None
             and market.observed_at.utcoffset() is not None
             and market.bid > 0

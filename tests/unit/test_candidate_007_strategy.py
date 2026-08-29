@@ -1,12 +1,15 @@
 """Unit tests for Candidate 007 Volatility Regime & Trend-Filtered Strategy."""
 
-from datetime import UTC, datetime, time, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from quantforge.application.trading_pipeline import MarketFact
 from quantforge.backtest.models import MinuteBar
-from quantforge.strategies.candidate_007 import Candidate007Settings, Candidate007Strategy
+from quantforge.strategies.candidate_007 import (
+    Candidate007Settings,
+    Candidate007Strategy,
+)
 
 NEW_YORK = ZoneInfo("America/New_York")
 
@@ -20,9 +23,9 @@ def make_bar(
 ) -> MinuteBar:
     c = Decimal(close)
     h = Decimal(high) if high is not None else c + Decimal("0.5")
-    l = Decimal(low) if low is not None else c - Decimal("0.5")
+    low_val = Decimal(low) if low is not None else c - Decimal("0.5")
     o = Decimal(open_) if open_ is not None else c
-    return MinuteBar(timestamp, o, h, l, c, tick_volume=10, spread_points=2)
+    return MinuteBar(timestamp, o, h, low_val, c, tick_volume=10, spread_points=2)
 
 
 def make_market_fact(
@@ -73,7 +76,9 @@ def test_candidate_007_ignores_outside_session_hours() -> None:
 
     # Evaluated at 07:30 NY (before 08:30 NY open)
     market = make_market_fact(observed_at=datetime(2026, 8, 28, 7, 30, tzinfo=NEW_YORK))
-    signal = strat.evaluate(market, evaluated_at=datetime(2026, 8, 28, 7, 30, tzinfo=NEW_YORK))
+    signal = strat.evaluate(
+        market, evaluated_at=datetime(2026, 8, 28, 7, 30, tzinfo=NEW_YORK)
+    )
     assert signal is None
 
 
@@ -179,7 +184,9 @@ def test_candidate_007_micro_scalper_multi_trade() -> None:
     # First scalp signal
     eval_time_1 = start + timedelta(minutes=31)
     sig1 = strat.evaluate(
-        make_market_fact(observed_at=eval_time_1, bid="77600.00", ask="77605.00", instrument="BTCUSD"),
+        make_market_fact(
+            observed_at=eval_time_1, bid="77600.00", ask="77605.00", instrument="BTCUSD"
+        ),
         evaluated_at=eval_time_1,
     )
     assert sig1 is not None
@@ -200,7 +207,9 @@ def test_candidate_007_micro_scalper_multi_trade() -> None:
     # Second scalp signal allowed!
     eval_time_2 = start + timedelta(minutes=35)
     sig2 = strat.evaluate(
-        make_market_fact(observed_at=eval_time_2, bid="77700.00", ask="77705.00", instrument="BTCUSD"),
+        make_market_fact(
+            observed_at=eval_time_2, bid="77700.00", ask="77705.00", instrument="BTCUSD"
+        ),
         evaluated_at=eval_time_2,
     )
     assert sig2 is not None

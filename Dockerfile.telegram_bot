@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Prevent Python from writing pyc files to disc
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=.:src
+
+# Install dependencies
+COPY pyproject.toml requirements.txt* ./
+RUN pip install --no-cache-dir -e .
+
+# Copy project source code
+COPY src/ src/
+COPY tools/ tools/
+COPY config/ config/
+COPY data/ data/
+
+# Run the Telegram Two-Way Interactive AI Assistant
+CMD ["python", "tools/run_telegram_assistant.py"]

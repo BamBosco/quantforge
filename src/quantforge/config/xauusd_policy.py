@@ -55,7 +55,5 @@ def _decimal(value: Any, name: str) -> Decimal:
             f"{name} must be a finite number"
         ) from error
     if not decimal.is_finite():
-        raise XAUUSDRiskPolicyConfigurationError(
-            f"{name} must be a finite number"
-        )
+        raise XAUUSDRiskPolicyConfigurationError(f"{name} must be a finite number")
     return decimal

@@ -13,7 +13,6 @@ from typing import Any
 from quantforge.application.paper_runtime import RuntimeCycleResult
 from quantforge.infrastructure.mt5.observation_contracts import ObservationEnvelope
 from quantforge.infrastructure.notifications.telegram_notifier import (
-    TelegramConfig,
     TelegramNotifier,
 )
 
@@ -32,8 +31,11 @@ class AlertManager:
         events: list[dict[str, Any]] = []
 
         # Handle direct signal intent dispatch
-        if getattr(result, "signal_generated", False) and getattr(result, "intent", None) is not None:
-            intent = getattr(result, "intent")
+        if (
+            getattr(result, "signal_generated", False)
+            and getattr(result, "intent", None) is not None
+        ):
+            intent = result.intent
             self.telegram.send_signal_alert(
                 instrument=observation.broker_symbol,
                 side=intent.side,
@@ -59,7 +61,9 @@ class AlertManager:
                     p = float(ex.fill.price)
                     dist = 15.0 if "BTC" in observation.broker_symbol.upper() else 1.5
                     sl = Decimal(str(p - dist if side == "buy" else p + dist))
-                    tp = Decimal(str(p + (dist * 1.5) if side == "buy" else p - (dist * 1.5)))
+                    tp = Decimal(
+                        str(p + (dist * 1.5) if side == "buy" else p - (dist * 1.5))
+                    )
 
                     self.telegram.send_signal_alert(
                         instrument=observation.broker_symbol,
@@ -77,7 +81,11 @@ class AlertManager:
                             "details": f"Price: ${p:,.2f}",
                         }
                     )
-                elif ex.outcome.status in {"stopped_out", "target_reached", "forced_exit"}:
+                elif ex.outcome.status in {
+                    "stopped_out",
+                    "target_reached",
+                    "forced_exit",
+                }:
                     self.telegram.send_fill_execution(
                         instrument=observation.broker_symbol,
                         side=ex.outcome.side,

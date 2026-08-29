@@ -17,7 +17,9 @@ def test_telegram_notifier_unconfigured_graceful_fallback() -> None:
 
 
 def test_telegram_notifier_formatted_signal_alert() -> None:
-    notifier = TelegramNotifier(TelegramConfig(bot_token="test_tok", chat_id="test_chat"))
+    notifier = TelegramNotifier(
+        TelegramConfig(bot_token="test_tok", chat_id="test_chat")
+    )
     assert notifier.is_configured
 
     with patch.object(notifier, "_post_message_sync", return_value=True) as mock_post:
@@ -39,7 +41,9 @@ def test_telegram_notifier_formatted_signal_alert() -> None:
 
 
 def test_telegram_notifier_risk_and_fill_alerts() -> None:
-    notifier = TelegramNotifier(TelegramConfig(bot_token="test_tok", chat_id="test_chat"))
+    notifier = TelegramNotifier(
+        TelegramConfig(bot_token="test_tok", chat_id="test_chat")
+    )
 
     with patch.object(notifier, "_post_message_sync", return_value=True) as mock_post:
         # Risk Gate Alert

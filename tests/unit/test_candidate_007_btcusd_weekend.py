@@ -1,17 +1,25 @@
 """Unit tests verifying Candidate 007 24/7 weekend trading on BTCUSD."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from quantforge.application.trading_pipeline import MarketFact
 from quantforge.backtest.models import MinuteBar
-from quantforge.strategies.candidate_007 import Candidate007Settings, Candidate007Strategy
+from quantforge.strategies.candidate_007 import (
+    Candidate007Settings,
+    Candidate007Strategy,
+)
 
 NEW_YORK = ZoneInfo("America/New_York")
 
 
-def make_bar(timestamp: datetime, price: Decimal, high_diff: Decimal = Decimal("100"), low_diff: Decimal = Decimal("100")) -> MinuteBar:
+def make_bar(
+    timestamp: datetime,
+    price: Decimal,
+    high_diff: Decimal = Decimal("100"),
+    low_diff: Decimal = Decimal("100"),
+) -> MinuteBar:
     return MinuteBar(
         timestamp=timestamp,
         open=price,

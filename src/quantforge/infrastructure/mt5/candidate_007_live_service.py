@@ -6,19 +6,24 @@ and pipe approved trade orders into the Auto Execution Queue (BTCUSD & XAUUSD).
 
 from __future__ import annotations
 
-import os
-from datetime import timedelta
+from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
-from typing import Callable
 
-from quantforge.application.candidate_007_paper_demo import build_candidate_007_paper_host
+from quantforge.application.candidate_007_paper_demo import (
+    build_candidate_007_paper_host,
+)
 from quantforge.application.paper_runtime import RuntimeCycleResult
 from quantforge.infrastructure.mt5.auto_execution_service import AutoExecutionQueue
-from quantforge.infrastructure.mt5.candidate_007_live_consumer import Candidate007LiveConsumer
+from quantforge.infrastructure.mt5.candidate_007_live_consumer import (
+    Candidate007LiveConsumer,
+)
 from quantforge.infrastructure.mt5.execution_contracts import OrderRequest
 from quantforge.infrastructure.mt5.observation_contracts import ObservationEnvelope
-from quantforge.infrastructure.mt5.observation_log import SQLiteMarketObservationLog, StoredObservation
+from quantforge.infrastructure.mt5.observation_log import (
+    SQLiteMarketObservationLog,
+    StoredObservation,
+)
 from quantforge.infrastructure.mt5.read_only_bridge import (
     ReadOnlyBridgeServer,
     SnapshotStore,
@@ -28,7 +33,10 @@ from quantforge.infrastructure.notifications.alert_manager import AlertManager
 from quantforge.journal import SQLiteEventJournal
 from quantforge.portfolio import Portfolio
 from quantforge.risk.limits import RiskLimits
-from quantforge.strategies.candidate_007 import Candidate007Settings, Candidate007Strategy
+from quantforge.strategies.candidate_007 import (
+    Candidate007Settings,
+    Candidate007Strategy,
+)
 
 
 class Candidate007SnapshotStore(SnapshotStore):
@@ -68,7 +76,13 @@ def create_candidate_007_live_bridge(
     risk_limits: RiskLimits | None = None,
     enable_auto_execution: bool = True,
     on_cycle: Callable[[RuntimeCycleResult, ObservationEnvelope], None] | None = None,
-) -> tuple[ReadOnlyBridgeServer, Candidate007Strategy, Portfolio, SQLiteEventJournal, AutoExecutionQueue]:
+) -> tuple[
+    ReadOnlyBridgeServer,
+    Candidate007Strategy,
+    Portfolio,
+    SQLiteEventJournal,
+    AutoExecutionQueue,
+]:
     """Create an authenticated live MT5 bridge server with Auto-Execution queue."""
     journal_path = Path(journal_path)
     journal_path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,9 +105,15 @@ def create_candidate_007_live_bridge(
     execution_queue = AutoExecutionQueue()
     execution_queue.auto_trading_enabled = enable_auto_execution
 
-    def wrapped_on_cycle(result: RuntimeCycleResult, observation: ObservationEnvelope) -> None:
+    def wrapped_on_cycle(
+        result: RuntimeCycleResult, observation: ObservationEnvelope
+    ) -> None:
         for ex in result.executions:
-            if ex.outcome is not None and ex.outcome.status == "filled" and ex.fill is not None:
+            if (
+                ex.outcome is not None
+                and ex.outcome.status == "filled"
+                and ex.fill is not None
+            ):
                 side = ex.outcome.side
                 entry_p = float(ex.fill.price)
                 dist = 85.0 if "BTC" in observation.broker_symbol.upper() else 1.5
@@ -134,7 +154,9 @@ def create_candidate_007_live_bridge(
 
     obs_log = SQLiteMarketObservationLog(obs_log_path)
     store = Candidate007SnapshotStore(obs_log, consumer, on_reset=on_reset)
-    handler = _handler_for(store, token, expected_symbol=symbol, execution_queue=execution_queue)
+    handler = _handler_for(
+        store, token, expected_symbol=symbol, execution_queue=execution_queue
+    )
 
     server = ReadOnlyBridgeServer((host, port), handler, store)
     return server, strategy, portfolio, journal, execution_queue

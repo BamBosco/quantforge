@@ -18,8 +18,7 @@ def test_xauusd_uses_a_separate_read_only_scope() -> None:
     assert profile.internal_symbol == profile.broker_symbol == "XAUUSD"
     assert profile.timeframe == "M1"
     assert (
-        profile.audit_journal_path
-        == "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
+        profile.audit_journal_path == "data/candidate_006_xauusd/xauusd_m1_demo.sqlite3"
     )
     assert profile.order_submission_enabled is False
 

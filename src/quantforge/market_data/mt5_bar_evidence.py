@@ -12,8 +12,14 @@ from pathlib import Path
 
 _REQUIRED_COLUMNS = frozenset(
     {
-        "<DATE>", "<TIME>", "<OPEN>", "<HIGH>", "<LOW>", "<CLOSE>",
-        "<TICKVOL>", "<SPREAD>",
+        "<DATE>",
+        "<TIME>",
+        "<OPEN>",
+        "<HIGH>",
+        "<LOW>",
+        "<CLOSE>",
+        "<TICKVOL>",
+        "<SPREAD>",
     }
 )
 
@@ -59,9 +65,8 @@ def inspect_mt5_bar_evidence(path: Path) -> MT5BarEvidence:
 
     with path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file, delimiter="\t")
-        if (
-            reader.fieldnames is None
-            or not _REQUIRED_COLUMNS.issubset(reader.fieldnames)
+        if reader.fieldnames is None or not _REQUIRED_COLUMNS.issubset(
+            reader.fieldnames
         ):
             raise ValueError("not a supported MT5 bar export")
         for row in reader:

@@ -7,8 +7,8 @@ and maximum open position constraints.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_DOWN
-from typing import Final, Literal
+from decimal import ROUND_DOWN, Decimal
+from typing import Literal
 
 from quantforge.risk.validation import validate_protective_stop
 
@@ -21,6 +21,7 @@ class RiskLimits:
     max_daily_drawdown: Decimal
     max_total_drawdown: Decimal
     max_correlated_open_risk: Decimal
+    allow_micro_lot_clamp: bool = False
 
     def __post_init__(self) -> None:
         for field_name, value in (
@@ -68,7 +69,11 @@ class AccountRiskSnapshot:
     correlated_open_risk: Decimal
 
     def __post_init__(self) -> None:
-        if self.current_equity < 0 or self.start_of_day_equity <= 0 or self.peak_equity <= 0:
+        if (
+            self.current_equity < 0
+            or self.start_of_day_equity <= 0
+            or self.peak_equity <= 0
+        ):
             raise ValueError("account snapshot equity figures must be valid")
 
 
@@ -118,13 +123,19 @@ def assess_pre_trade_risk(
     risk_budget = snapshot.current_equity * limits.risk_per_trade
     calculated_qty = _snap_down(risk_budget / risk_per_lot, request.volume_step)
     if calculated_qty < request.minimum_volume:
-        reasons.append("risk budget cannot support minimum volume")
-        return RiskDecision(False, tuple(reasons))
+        if limits.allow_micro_lot_clamp and snapshot.current_equity > 0:
+            calculated_qty = request.minimum_volume
+        else:
+            reasons.append("risk budget cannot support minimum volume")
+            return RiskDecision(False, tuple(reasons))
 
     quantity = min(calculated_qty, request.maximum_volume)
     proposed_risk = quantity * risk_per_lot
     total_correlated_risk = snapshot.correlated_open_risk + proposed_risk
-    if total_correlated_risk > snapshot.current_equity * limits.max_correlated_open_risk:
+    if (
+        total_correlated_risk
+        > snapshot.current_equity * limits.max_correlated_open_risk
+    ):
         reasons.append("correlated open-risk limit would be exceeded")
         return RiskDecision(False, tuple(reasons))
 

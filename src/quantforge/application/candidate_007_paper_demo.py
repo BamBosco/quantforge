@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time, timedelta
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Sequence
 from zoneinfo import ZoneInfo
 
 from quantforge.application.paper_runtime import (
@@ -21,7 +21,10 @@ from quantforge.infrastructure.mt5.observation_log import SQLiteMarketObservatio
 from quantforge.journal import SQLiteEventJournal
 from quantforge.portfolio import Portfolio
 from quantforge.risk.limits import RiskLimits
-from quantforge.strategies.candidate_007 import Candidate007Settings, Candidate007Strategy
+from quantforge.strategies.candidate_007 import (
+    Candidate007Settings,
+    Candidate007Strategy,
+)
 
 NEW_YORK = ZoneInfo("America/New_York")
 
@@ -43,7 +46,10 @@ def make_observation(
         {
             "schema_version": 2,
             "observed_at_utc": timestamp,
-            "source": {"adapter": "candidate_007_paper_stream", "broker_profile_id": f"paper_{norm.lower()}"},
+            "source": {
+                "adapter": "candidate_007_paper_stream",
+                "broker_profile_id": f"paper_{norm.lower()}",
+            },
             "account": {
                 "account_id": "paper-candidate-007",
                 "server": "PAPER-DEMO",
@@ -102,7 +108,9 @@ class FlexInstrumentRiskMetadata(dict):
         try:
             return self[key]
         except KeyError:
-            return default if default is not None else InstrumentRiskMetadata(Decimal("1"))
+            return (
+                default if default is not None else InstrumentRiskMetadata(Decimal("1"))
+            )
 
 
 def build_candidate_007_paper_host(
@@ -119,7 +127,11 @@ def build_candidate_007_paper_host(
     strategy = Candidate007Strategy(settings=settings)
 
     limits = risk_limits or RiskLimits(
-        Decimal("0.01"), Decimal("0.03"), Decimal("0.06"), Decimal("0.03")
+        Decimal("0.01"),
+        Decimal("0.03"),
+        Decimal("0.06"),
+        Decimal("0.03"),
+        allow_micro_lot_clamp=True,
     )
     pipeline = PaperTradingPipeline(
         limits=limits,
@@ -163,7 +175,11 @@ def run_candidate_007_paper_simulation(
     initial_balance: Decimal = Decimal("10000"),
 ) -> dict[str, object]:
     """Feed bar stream through Candidate 007 Strategy -> Risk Gate -> Paper Executor."""
-    settings = Candidate007Settings.for_btcusd() if "BTC" in instrument.upper() else Candidate007Settings(instrument=instrument)
+    settings = (
+        Candidate007Settings.for_btcusd()
+        if "BTC" in instrument.upper()
+        else Candidate007Settings(instrument=instrument)
+    )
     host, strategy, portfolio, journal = build_candidate_007_paper_host(
         journal_path, initial_balance=initial_balance, settings=settings
     )

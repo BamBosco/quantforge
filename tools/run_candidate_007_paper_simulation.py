@@ -28,7 +28,33 @@ def main() -> None:
     parser.add_argument("--limit-bars", type=int, default=5000, help="Number of M1 bars to simulate")
     parser.add_argument("--journal", type=Path, default=Path("data/paper_mode/candidate_007_paper.sqlite3"))
     parser.add_argument("--balance", type=float, default=10000.0, help="Initial paper capital in USD")
+    parser.add_argument(
+        "--mode",
+        choices=["hybrid_scalper", "ny_scalper", "conservative", "btcusd"],
+        default="hybrid_scalper",
+        help="Candidate 007 Strategy Preset Mode",
+    )
+    parser.add_argument("--telegram", action="store_true", help="Send live alerts to configured Telegram Bot")
     args = parser.parse_args()
+
+    notifier = None
+    if args.telegram:
+        from quantforge.infrastructure.notifications.telegram_notifier import TelegramNotifier
+        notifier = TelegramNotifier()
+        if notifier.is_configured:
+            print("📱 Telegram Live Alerting: ENABLED")
+            notifier.send_message(
+                f"🚀 <b>QuantForge Paper Simulation Started</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Asset: <code>XAUUSD M1</code>\n"
+                f"Mode: <b>{args.mode.replace('_', ' ').title()}</b>\n"
+                f"Initial Balance: <b>${args.balance:,.2f}</b>\n"
+                f"Simulating: <b>{args.limit_bars:,} Bars</b>\n"
+                f"Risk Gate: <b>1.0% per trade</b>",
+                async_send=False,
+            )
+        else:
+            print("⚠️  Telegram Not Configured — skipping phone alerts.")
 
     args.journal.parent.mkdir(parents=True, exist_ok=True)
     if args.journal.exists():
@@ -38,10 +64,22 @@ def main() -> None:
     print("🚀 QUANTFORGE PAPER TRADING SIMULATION — CANDIDATE 007")
     print("=" * 70)
     print(f"Data Source       : {args.data}")
+    print(f"Preset Mode       : {args.mode.upper()}")
     print(f"Initial Balance   : ${args.balance:,.2f}")
     print(f"Event Journal DB  : {args.journal}")
     print("Risk Gate Policy  : 1.0% Max Risk per Trade | Max 3.0% Correlated Risk")
     print("-" * 70)
+
+    from quantforge.strategies.candidate_007 import Candidate007Settings
+
+    if args.mode == "hybrid_scalper":
+        settings = Candidate007Settings.for_hybrid_dynamic_scalper("XAUUSD")
+    elif args.mode == "ny_scalper":
+        settings = Candidate007Settings.for_new_york_gold_scalper()
+    elif args.mode == "btcusd":
+        settings = Candidate007Settings.for_btcusd()
+    else:
+        settings = Candidate007Settings(instrument="XAUUSD")
 
     print(f"Loading market bars from {args.data}...")
     bars = load_mt5_minute_bars(args.data, source_timezone="Etc/UTC")
@@ -49,7 +87,7 @@ def main() -> None:
     print(f"Loaded {len(bars)} total bars. Simulating stream of {len(sim_bars)} M1 bars...\n")
 
     host, strategy, portfolio, journal = build_candidate_007_paper_host(
-        args.journal, initial_balance=Decimal(str(args.balance))
+        args.journal, initial_balance=Decimal(str(args.balance)), settings=settings
     )
 
     signals_count = 0
@@ -87,6 +125,16 @@ def main() -> None:
                     f"  └─ ⚡ PAPER FILL: {ex.fill.side.upper()} {ex.fill.quantity} lots "
                     f"at ${ex.fill.price:.2f} (Fee: ${ex.fill.fee:.2f})"
                 )
+                if notifier and notifier.is_configured:
+                    notifier.send_fill_alert(
+                        instrument="XAUUSD",
+                        side=ex.fill.side,
+                        quantity=ex.fill.quantity,
+                        fill_price=ex.fill.price,
+                        fee=ex.fill.fee,
+                        order_id=ex.intent_id or "PAPER",
+                        status=ex.status,
+                    )
 
         if idx % 1000 == 0:
             current_eq = portfolio.equity
@@ -109,6 +157,17 @@ def main() -> None:
     print(f"Open Positions         : {len(portfolio.positions)}")
     print(f"SQLite Audit Journal   : {args.journal} (Durable & Replayable)")
     print("=" * 70)
+
+    if notifier and notifier.is_configured:
+        notifier.send_message(
+            f"🏁 <b>QuantForge Simulation Completed</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"Bars Replayed  : <b>{len(sim_bars):,} M1 bars</b>\n"
+            f"Signals / Fills: <b>{signals_count} / {filled_orders}</b>\n"
+            f"Final Equity   : <b>${final_equity:,.2f} ({pnl:+,.2f} USD)</b>\n"
+            f"Auditable Log  : <code>{args.journal.name}</code>",
+            async_send=False,
+        )
 
 
 if __name__ == "__main__":

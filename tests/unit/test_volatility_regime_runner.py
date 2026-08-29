@@ -8,7 +8,7 @@ from quantforge.backtest.volatility_regime_runner import run_volatility_regime_s
 def test_rejects_a_non_xauusd_manifest_before_accessing_data(tmp_path: Path) -> None:
     manifest = tmp_path / "dataset.toml"
     manifest.write_text(
-        '''
+        """
 [identity]
 dataset_id = "usdjpy"
 instrument = "USDJPY"
@@ -21,7 +21,7 @@ end_utc = "2026-01-02T00:00:00+00:00"
 
 [quality]
 excluded_session_days = []
-''',
+""",
         encoding="utf-8",
     )
 

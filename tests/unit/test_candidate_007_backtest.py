@@ -1,6 +1,6 @@
 """Unit tests for Candidate 007 backtest and historical simulation engine."""
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -10,7 +10,6 @@ from quantforge.backtest.candidate_007 import (
 )
 from quantforge.backtest.candidate_007_runner import (
     run_candidate_007_backtest,
-    summarize_candidate_007_run,
 )
 from quantforge.backtest.models import MinuteBar
 from quantforge.backtest.replay import SessionOutcome
@@ -29,12 +28,12 @@ def make_bar(
     o = Decimal(open_)
     c = Decimal(close)
     h = Decimal(high) if high is not None else max(o, c) + Decimal("1.00")
-    l = Decimal(low) if low is not None else min(o, c) - Decimal("1.00")
+    low_val = Decimal(low) if low is not None else min(o, c) - Decimal("1.00")
     return MinuteBar(
         timestamp=timestamp,
         open=o,
         high=h,
-        low=l,
+        low=low_val,
         close=c,
         tick_volume=10,
         spread_points=spread_points,
@@ -45,13 +44,23 @@ def test_simulate_candidate_007_buy_hits_2r_target() -> None:
     session_day = date(2026, 8, 28)
     start_ny = datetime(2026, 8, 28, 6, 0, tzinfo=NEW_YORK)
     warmup_bars = [
-        make_bar(start_ny + timedelta(minutes=i), open_="2390.00", high="2392.00", low="2388.00", close="2390.00")
+        make_bar(
+            start_ny + timedelta(minutes=i),
+            open_="2390.00",
+            high="2392.00",
+            low="2388.00",
+            close="2390.00",
+        )
         for i in range(80)
     ]
 
     # At 08:35 NY, price breaks out upward
     session_bars = [
-        make_bar(datetime(2026, 8, 28, 8, 30, tzinfo=NEW_YORK) + timedelta(minutes=i), open_="2390.00", close="2390.00")
+        make_bar(
+            datetime(2026, 8, 28, 8, 30, tzinfo=NEW_YORK) + timedelta(minutes=i),
+            open_="2390.00",
+            close="2390.00",
+        )
         for i in range(5)
     ]
     # Breakout bar at 08:35: High surges to 2405 (channel high was 2392)
@@ -76,7 +85,9 @@ def test_simulate_candidate_007_buy_hits_2r_target() -> None:
     )
 
     settings = Candidate007SimulationSettings(risk_reward_ratio=Decimal("2.0"))
-    result = simulate_candidate_007_session(session_day, session_bars, warmup_bars, settings)
+    result = simulate_candidate_007_session(
+        session_day, session_bars, warmup_bars, settings
+    )
 
     assert result.outcome == SessionOutcome.FORCED_EXIT
     assert result.entry_side == "buy"
@@ -88,12 +99,22 @@ def test_simulate_candidate_007_stop_loss_hit() -> None:
     session_day = date(2026, 8, 28)
     start_ny = datetime(2026, 8, 28, 6, 0, tzinfo=NEW_YORK)
     warmup_bars = [
-        make_bar(start_ny + timedelta(minutes=i), open_="2390.00", high="2392.00", low="2388.00", close="2390.00")
+        make_bar(
+            start_ny + timedelta(minutes=i),
+            open_="2390.00",
+            high="2392.00",
+            low="2388.00",
+            close="2390.00",
+        )
         for i in range(80)
     ]
 
     session_bars = [
-        make_bar(datetime(2026, 8, 28, 8, 30, tzinfo=NEW_YORK) + timedelta(minutes=i), open_="2390.00", close="2390.00")
+        make_bar(
+            datetime(2026, 8, 28, 8, 30, tzinfo=NEW_YORK) + timedelta(minutes=i),
+            open_="2390.00",
+            close="2390.00",
+        )
         for i in range(5)
     ]
     # Breakout bar triggers BUY
@@ -118,7 +139,9 @@ def test_simulate_candidate_007_stop_loss_hit() -> None:
     )
 
     settings = Candidate007SimulationSettings()
-    result = simulate_candidate_007_session(session_day, session_bars, warmup_bars, settings)
+    result = simulate_candidate_007_session(
+        session_day, session_bars, warmup_bars, settings
+    )
 
     assert result.outcome == SessionOutcome.STOPPED_OUT
     assert result.entry_side == "buy"
@@ -127,7 +150,6 @@ def test_simulate_candidate_007_stop_loss_hit() -> None:
 
 
 def test_candidate_007_backtest_runner_summary() -> None:
-    session_day = date(2026, 8, 28)
     bars = [
         make_bar(datetime(2026, 8, 28, 6, 0, tzinfo=NEW_YORK) + timedelta(minutes=i))
         for i in range(120)

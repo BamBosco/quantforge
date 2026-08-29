@@ -6,17 +6,16 @@ and real-time in-memory portfolio/journal reset.
 
 from __future__ import annotations
 
-import argparse
 import hmac
 import json
-import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Lock
-from typing import Any, Callable, Final
+from typing import Any, Final
 
 from .auto_execution_service import AutoExecutionQueue
 from .candidate_006_bridge_audit import Candidate006BridgeAuditConsumer
@@ -289,18 +288,29 @@ def _handler_for(
                     payload = json.loads(self.rfile.read(content_length))
                     observation = ObservationEnvelope.from_payload(payload)
                     if expected_symbol is not None:
-                        norm_expected = expected_symbol.strip("#._/ ").replace("/", "").upper()
-                        norm_obs = observation.broker_symbol.strip("#._/ ").replace("/", "").upper()
+                        norm_expected = (
+                            expected_symbol.strip("#._/ ").replace("/", "").upper()
+                        )
+                        norm_obs = (
+                            observation.broker_symbol.strip("#._/ ")
+                            .replace("/", "")
+                            .upper()
+                        )
                         base_expected = norm_expected.rstrip("M.C_PRO")
                         base_obs = norm_obs.rstrip("M.C_PRO")
-                        if observation.broker_symbol != expected_symbol and norm_obs != norm_expected and base_obs != base_expected:
+                        if (
+                            observation.broker_symbol != expected_symbol
+                            and norm_obs != norm_expected
+                            and base_obs != base_expected
+                        ):
                             raise SnapshotValidationError(
                                 f"unexpected broker symbol: {observation.broker_symbol} (expected: {expected_symbol})"
                             )
                     store.record(observation)
                 except Exception as error:
                     import traceback
-                    print(f'❌ [BRIDGE SNAPSHOT ERROR] {error}', flush=True)
+
+                    print(f"❌ [BRIDGE SNAPSHOT ERROR] {error}", flush=True)
                     traceback.print_exc()
                     self._reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
                     return
@@ -308,7 +318,9 @@ def _handler_for(
                 # Return any queued execution orders directly inside the 202 response
                 pending_orders = []
                 if execution_queue is not None:
-                    pending_orders = [p.to_payload() for p in execution_queue.pop_pending_orders()]
+                    pending_orders = [
+                        p.to_payload() for p in execution_queue.pop_pending_orders()
+                    ]
 
                 self._reply(
                     HTTPStatus.ACCEPTED,
@@ -343,7 +355,9 @@ def _handler_for(
                 except Exception as error:
                     self._reply(HTTPStatus.BAD_REQUEST, {"error": str(error)})
                     return
-                self._reply(HTTPStatus.OK, {"status": "queued", "order_id": order.order_id})
+                self._reply(
+                    HTTPStatus.OK, {"status": "queued", "order_id": order.order_id}
+                )
                 return
 
             self._reply(HTTPStatus.NOT_FOUND, {"error": "not found"})

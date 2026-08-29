@@ -89,9 +89,17 @@ class Candidate006BridgeAuditConsumer:
         specification = payload["instrument"]["specification"]
         assert isinstance(specification, dict)
         required = (
-            "trade_mode", "order_mode", "stop_level", "freeze_level",
-            "trade_calculation_mode", "profit_currency", "margin_currency",
-            "tick_size", "tick_value", "tick_value_loss", "tick_value_profit",
+            "trade_mode",
+            "order_mode",
+            "stop_level",
+            "freeze_level",
+            "trade_calculation_mode",
+            "profit_currency",
+            "margin_currency",
+            "tick_size",
+            "tick_value",
+            "tick_value_loss",
+            "tick_value_profit",
         )
         if any(specification.get(name) is None for name in required):
             raise Candidate006BridgeAuditError(

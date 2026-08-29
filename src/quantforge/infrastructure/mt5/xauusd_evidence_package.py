@@ -74,19 +74,22 @@ def export_candidate_006_evidence_package(
         )
     raw = ("\n".join(records) + "\n").encode()
     digest = sha256(raw).hexdigest()
-    manifest = canonical_json(
-        {
-            "schema_version": "candidate_006_evidence_package.v1",
-            "instrument": "XAUUSD",
-            "record_count": len(records),
-            "records_filename": records_path.name,
-            "records_sha256": digest,
-            "source_event_ids": [
-                json.loads(line)["source_event_id"] for line in records
-            ],
-            "frozen_at_utc": datetime.now(UTC).isoformat(),
-        }
-    ).encode() + b"\n"
+    manifest = (
+        canonical_json(
+            {
+                "schema_version": "candidate_006_evidence_package.v1",
+                "instrument": "XAUUSD",
+                "record_count": len(records),
+                "records_filename": records_path.name,
+                "records_sha256": digest,
+                "source_event_ids": [
+                    json.loads(line)["source_event_id"] for line in records
+                ],
+                "frozen_at_utc": datetime.now(UTC).isoformat(),
+            }
+        ).encode()
+        + b"\n"
+    )
     _write_once(records_path, raw)
     _write_once(manifest_path, manifest)
     return Candidate006EvidencePackage(
@@ -141,9 +144,12 @@ def _accepted_events(database: Path) -> list[dict[str, Any]]:
         connection.close()
     return [
         {
-            "source_event_id": int(row[0]), "event_time_utc": str(row[1]),
-            "received_at_utc": str(row[2]), "payload": json.loads(str(row[3])),
-            "payload_sha256": str(row[4]), "quality_status": str(row[5]),
+            "source_event_id": int(row[0]),
+            "event_time_utc": str(row[1]),
+            "received_at_utc": str(row[2]),
+            "payload": json.loads(str(row[3])),
+            "payload_sha256": str(row[4]),
+            "quality_status": str(row[5]),
             "broker_symbol": str(row[6]),
         }
         for row in rows

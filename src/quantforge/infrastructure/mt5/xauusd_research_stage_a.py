@@ -58,7 +58,8 @@ class XAUUSDResearchStageAGateway:
             reasons.append("provisional research parameters have expired for review")
         local_now = now.astimezone(ZoneInfo(self._settings.timezone))
         if local_now.weekday() >= 5 or not (
-            self._settings.session_start <= local_now.timetz().replace(tzinfo=None)
+            self._settings.session_start
+            <= local_now.timetz().replace(tzinfo=None)
             < self._settings.session_end
         ):
             reasons.append("outside provisional XAUUSD research session")

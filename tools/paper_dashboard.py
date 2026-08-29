@@ -922,12 +922,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
               const closeT = (t.closed_at || '').substring(11, 19);
               const shortTicket = (t.order_id || '').substring(0, 10);
               const reasonBadge = t.status === 'target_reached' 
-                ? '<span style="color: var(--accent-green); font-weight:700;">🎯 Take Profit Hit</span>'
+                ? '<span style="color: var(--accent-green); font-weight:700;">🎯 Quick Strike (+Gain)</span>'
                 : (t.status === 'breakeven' 
                   ? '<span style="color: #60a5fa; font-weight:700;">🛡️ Breakeven Exit</span>'
-                  : (t.status === 'forced_exit' 
-                    ? '<span style="color: var(--accent-yellow); font-weight:700;">🏁 Profit Lock / Close</span>' 
-                    : '<span style="color: var(--accent-red); font-weight:700;">🛑 Stop Loss Exit</span>'));
+                  : (pnl >= 0 
+                    ? '<span style="color: var(--accent-green); font-weight:700;">💰 Profit Banked (+Gain)</span>' 
+                    : '<span style="color: var(--accent-red); font-weight:700;">🛑 Stop Loss Exit (-Risk)</span>'));
               return `<tr>
                 <td>#${shortTicket}</td>
                 <td><strong>${t.instrument}</strong></td>
@@ -1419,7 +1419,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         pnl = (cp - ep) * qty if side == "buy" else (ep - cp) * qty
                         
                         # ONLY close if strictly in positive profit
-                        if pnl > 0 or len(open_pos) == 1:
+                        if pnl > 0:
                             total_realized += pnl
                             exit_payload = {
                                 "order_id": oid,
@@ -1561,6 +1561,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         events = []
         open_positions = {}
         closed_trades = []
+        seen_closed_order_ids = set()
         realized_pnl = 0.0
         fills_count = 0
 
@@ -1605,12 +1606,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                 "opened_at": occurred_at_utc,
                             }
                         elif st in {"stopped_out", "target_reached", "forced_exit", "breakeven"}:
-                            fills_count += 1
+                            if oid and oid in seen_closed_order_ids:
+                                continue
                             if oid in open_positions:
                                 pos = open_positions.pop(oid)
                                 ep = pos["open_price"]
                                 pnl = (p_price - ep) * qty if pos["side"] == "buy" else (ep - p_price) * qty
                                 realized_pnl += pnl
+                                if oid:
+                                    seen_closed_order_ids.add(oid)
+                                fills_count += 1
                                 closed_trades.append({
                                     "order_id": oid,
                                     "instrument": pos["instrument"],
@@ -1623,20 +1628,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                     "closed_at": occurred_at_utc,
                                     "status": st,
                                     "reason": payload.get("reason", "Take Profit Hit" if st == "target_reached" else "Market Exit"),
-                                })
-                            else:
-                                closed_trades.append({
-                                    "order_id": oid or f"exit-{seq}",
-                                    "instrument": payload.get("instrument", "BTCUSDm"),
-                                    "side": side,
-                                    "quantity": qty or 0.01,
-                                    "open_price": p_price,
-                                    "exit_price": p_price,
-                                    "pnl": 0.0,
-                                    "opened_at": occurred_at_utc,
-                                    "closed_at": occurred_at_utc,
-                                    "status": st,
-                                    "reason": payload.get("reason", "Manual Close"),
                                 })
             except Exception:
                 pass

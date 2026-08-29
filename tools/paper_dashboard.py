@@ -1190,9 +1190,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
                 order_id = f"qf-{int(time.time()*1000)}"
                 is_btc = "BTC" in sym.upper()
-                # Asymmetric Risk/Reward: SL is tight & closer to entry (1.0R), TP is far (2.5R)
-                sl_dist = 100.0 if is_btc else 1.20
-                tp_dist = 250.0 if is_btc else 3.00
+                # Quick Strike Scalper: Tight Risk ($0.80 - $1.00) : Direct $1.50 Profit Target
+                sl_dist = 80.0 if is_btc else 1.00
+                tp_dist = 150.0 if is_btc else 1.50
                 sl_price = cur_price - sl_dist if side == "buy" else cur_price + sl_dist
                 tp_price = cur_price + tp_dist if side == "buy" else cur_price - tp_dist
 
@@ -1644,15 +1644,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
             pos_copy["floating_pnl"] = pos_pnl
             pos_copy["current_price"] = cp
 
-            # Sensible Profit & Positive Breakeven thresholds (Tight SL : 2.5R TP)
-            # Gold: $0.50 (5 pips) activates +0.35 positive breakeven, $1.00+ banks profit
-            # BTC: $45.0 activates +$15.0 positive breakeven, $2.00+ banks profit
-            be_thresh = 45.0 if is_btc else 0.50
-            be_buffer = 15.0 if is_btc else 0.35
-            sensible_profit_target = 2.00 if is_btc else 1.00
+            # Quick Strike $1.00 - $2.00 Profit Bank Target (Gold & BTC Scalper)
+            # Gold: $1.00 profit (10 pips) / BTC: $1.50 profit ($150 move)
+            sensible_profit_target = 1.50 if is_btc else 1.00
 
-            sl_dist = 100.0 if is_btc else 1.20
-            tp_dist = 250.0 if is_btc else 3.00
+            sl_dist = 80.0 if is_btc else 1.00
+            tp_dist = 150.0 if is_btc else 1.50
             sl_p = float(pos.get("stop_loss_price") or (ep - sl_dist if pos["side"] == "buy" else ep + sl_dist))
             tp_p = float(pos.get("target_price") or (ep + tp_dist if pos["side"] == "buy" else ep - tp_dist))
 

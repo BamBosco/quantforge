@@ -21,12 +21,13 @@ class OrderRequest:
 
     order_id: str
     symbol: str
-    side: Literal["buy", "sell"]
+    side: Literal["buy", "sell", "close", "close_all"]
     volume: float
-    order_type: Literal["market", "limit", "stop"]
-    price: float
-    stop_loss: float
-    take_profit: float
+    order_type: Literal["market", "limit", "stop", "close"] = "market"
+    price: float = 0.0
+    stop_loss: float = 0.0
+    take_profit: float = 0.0
+    ticket: int = 0
     magic_number: int = 7007
     comment: str = "QuantForge C007"
     created_at_utc: str = ""
@@ -50,7 +51,7 @@ class OrderRequest:
             raise ExecutionContractError("order_id is required")
         if not symbol:
             raise ExecutionContractError("symbol is required")
-        if side not in {"buy", "sell"}:
+        if side not in {"buy", "sell", "close", "close_all"}:
             raise ExecutionContractError(f"invalid side: {side}")
 
         return cls(
@@ -62,6 +63,7 @@ class OrderRequest:
             price=float(payload.get("price", 0.0)),
             stop_loss=float(payload.get("stop_loss", 0.0)),
             take_profit=float(payload.get("take_profit", 0.0)),
+            ticket=int(payload.get("ticket", 0)),
             magic_number=int(payload.get("magic_number", 7007)),
             comment=str(payload.get("comment", "QuantForge C007")),
             created_at_utc=str(payload.get("created_at_utc", "")),

@@ -231,6 +231,44 @@ void ExecuteSingleOrder(string order_json)
    double sl = ExtractJsonDouble(order_json, "stop_loss");
    double tp = ExtractJsonDouble(order_json, "take_profit");
 
+   if(side == "close" || side == "CLOSE" || side == "close_all" || side == "CLOSE_ALL")
+     {
+      ulong ticket = (ulong)ExtractJsonDouble(order_json, "ticket");
+      if(ticket > 0)
+        {
+         Print(StringFormat("🛑 [Auto-Execution] Closing MT5 Position Ticket #%I64d", ticket));
+         if(m_trade.PositionClose(ticket))
+           {
+            g_orders_executed++;
+            Print(StringFormat("✅ Position #%I64d Closed Successfully!", ticket));
+           }
+         else
+           {
+            Print(StringFormat("❌ Failed to close ticket #%I64d: %d (%s)", ticket, m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()));
+           }
+        }
+      else
+        {
+         Print(StringFormat("🛑 [Auto-Execution] Closing ALL positions on %s", g_symbol));
+         for(int i = PositionsTotal() - 1; i >= 0; i--)
+           {
+            ulong t = PositionGetTicket(i);
+            if(t > 0)
+              {
+               if(PositionGetString(POSITION_SYMBOL) == g_symbol || g_symbol == "")
+                 {
+                  if(m_trade.PositionClose(t))
+                    {
+                     g_orders_executed++;
+                     Print(StringFormat("✅ Closed Position #%I64d", t));
+                    }
+                 }
+              }
+           }
+        }
+      return;
+     }
+
    if(volume <= 0 || volume > MaxLotSize)
      {
       Print(StringFormat("⚠️ Rejected order volume %.4f (Max allowed: %.2f)", volume, MaxLotSize));

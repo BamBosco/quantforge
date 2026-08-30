@@ -45,6 +45,7 @@ class TelegramAIAssistant:
         self.brain_db_path = brain_db_path
         self._ssl_ctx = _get_ssl_context()
         self._last_update_id = 0
+        self._processed_msg_ids: set[int] = set()
         self._is_running = False
         self._init_db()
         self._fast_forward_updates()
@@ -1032,27 +1033,39 @@ class TelegramAIAssistant:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
                     updates = data.get("result", [])
+                    now_ts = int(time.time())
                     for u in updates:
                         up_id = u.get("update_id", 0)
                         if up_id > self._last_update_id:
                             self._last_update_id = up_id
 
                         msg = u.get("message", {})
+                        msg_id = msg.get("message_id")
+                        msg_date = int(msg.get("date", 0) or 0)
                         text = msg.get("text", "")
                         from_user = msg.get("from", {})
                         chat = msg.get("chat", {})
                         chat_id = str(chat.get("id", ""))
                         user_name = from_user.get("first_name", "")
 
-                        # Security check: authorize configured chat_id or allow start
+                        # Deduplicate & discard stale updates older than 25 seconds
+                        if msg_id and msg_id in self._processed_msg_ids:
+                            continue
+                        if msg_id:
+                            self._processed_msg_ids.add(msg_id)
+                            if len(self._processed_msg_ids) > 1000:
+                                self._processed_msg_ids.clear()
+
+                        if msg_date > 0 and (now_ts - msg_date) > 25:
+                            logger.info(f"Skipping stale message #{msg_id} (age: {now_ts - msg_date}s)")
+                            continue
+
+                        # Process valid recent message
                         if chat_id and text:
-                            # Show typing indicator
                             self.send_typing_action(chat_id)
-                            # Process message
                             reply = self.process_incoming_message(
                                 chat_id, text, user_name=user_name
                             )
-                            # Send reply
                             self.send_reply(chat_id, reply)
         except Exception as e:
             logger.debug(f"Polling error: {e}")

@@ -1009,14 +1009,10 @@ class TelegramAIAssistant:
                 f"Your capital preservation is our #1 priority."
             )
 
-        # 7. Default Smart Conversational Assistant
-        notes = self.get_notes(limit=2)
-        notes_str = f" (Memory: '{notes[0]['note']}')" if notes else ""
+        # 7. Fallback when neural query is offline
         return (
-            f"👋 Hello <b>{name}</b>!\n\n"
-            f"QuantForge AI is live and connected to MT5 ({sym} at <code>${bid:,.2f}</code>, Equity: <b>${equity:,.2f}</b>).\n\n"
-            f"I can analyze market setups, explain SMC/Wyckoff strategies, review risk parameters, or execute trades directly on command.{notes_str}\n\n"
-            f"How can I assist your trading right now?"
+            "⚠️ <b>QuantForge Neural AI connection is currently refreshing.</b>\n"
+            "Please repeat your prompt or request in a moment."
         )
 
     def poll_once(self) -> None:

@@ -253,6 +253,22 @@ class TelegramAIAssistant:
             return None
 
         name = user_name or "Trader"
+        is_owner = (
+            name.lower() in {"bamidele", "bambosco", "dele", "bosco"}
+            or (user_name == "")
+            or chat_id == self.config.chat_id
+        )
+        if is_owner:
+            owner_context = (
+                "You are conversing with Bamidele Boluwatife (@Bambosco), the creator, owner, and lead quant of QuantForge."
+            )
+        else:
+            owner_context = (
+                f"You are conversing with {name}, a trader, friend, or guest exploring QuantForge. "
+                f"Welcome {name} warmly, explain that QuantForge is Bamidele Boluwatife's (@Bambosco) proprietary institutional algorithmic trading platform, "
+                f"and provide them with elite quantitative, SMC, and market structure mentorship."
+            )
+
         notes = self.get_notes(limit=8)
         notes_text = (
             "\n".join([f"- {n['note']} ({n['category']})" for n in notes])
@@ -262,7 +278,8 @@ class TelegramAIAssistant:
         history = self.get_recent_chat_history(chat_id, limit=8)
 
         system_instruction = (
-            f"You are QuantForge AI, a world-class elite quantitative trading mentor, institutional strategist, and Smart Money Concepts (SMC) AI advisor created specifically for {name} (@Bambosco).\n"
+            f"You are QuantForge AI, a world-class elite quantitative trading mentor, institutional strategist, and Smart Money Concepts (SMC) AI advisor.\n"
+            f"{owner_context}\n"
             f"You are directly integrated with QuantForge's live MetaTrader 5 (MT5) execution engine, real-time telemetry, and persistent SQLite memory.\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📚 CORE MASTER TRADING & QUANT KNOWLEDGE BASE:\n"
@@ -309,12 +326,25 @@ class TelegramAIAssistant:
             f"- Use crisp Telegram HTML tags (<b>bold</b>, <code>code</code>, <i>italic</i>) for formatting."
         )
 
+        # Build clean alternating chat turns for Gemini API
         contents = []
+        last_role = None
         for h in history:
             role = "user" if h["role"] == "user" else "model"
-            contents.append({"role": role, "parts": [{"text": h["text"]}]})
+            if role == last_role:
+                if contents:
+                    contents[-1]["parts"][0]["text"] += f"\n{h['text']}"
+            else:
+                contents.append({"role": role, "parts": [{"text": h["text"]}]})
+                last_role = role
 
-        contents.append({"role": "user", "parts": [{"text": text}]})
+        if last_role == "user" and contents:
+            contents[-1]["parts"][0]["text"] += f"\n{text}"
+        else:
+            contents.append({"role": "user", "parts": [{"text": text}]})
+
+        while contents and contents[0]["role"] != "user":
+            contents.pop(0)
 
         payload = {
             "system_instruction": {"parts": [{"text": system_instruction}]},
@@ -792,16 +822,16 @@ class TelegramAIAssistant:
     def generate_ai_conversational_reply(
         self, text: str, user_name: str, ctx: dict[str, Any]
     ) -> str:
-        """Generate a natural, highly intelligent, conversational AI reply tailored to live market conditions and quant trading."""
-        lower = text.lower().strip()
+        """Intelligent, dynamic fallback conversational reasoning engine."""
         name = user_name or "Trader"
-        fl_pnl = ctx["floating_pnl"]
+        lower = text.lower().strip()
+        equity = ctx.get("equity", 30.0)
+        fl_pnl = ctx.get("floating_pnl", 0.0)
         fl_sign = "+" if fl_pnl >= 0 else ""
         open_pos = ctx.get("open_positions", [])
         has_pos = len(open_pos) > 0
         sym = ctx.get("symbol", "BTCUSDm")
         bid = ctx.get("bid", 0.0)
-        equity = ctx.get("equity", 30.0)
 
         # 1. Greetings & Small Talk
         if (
@@ -822,18 +852,16 @@ class TelegramAIAssistant:
                 f"How can I assist your trading right now? You can ask me for a market breakdown, check risk, or tell me to <i>'buy gold'</i> / <i>'close profit'</i> whenever you're ready."
             )
 
-        # 2. QuantForge Knowledge & Intelligence Disclosure
+        # 2. What/Who is QuantForge / Knowledge Disclosure
         if any(
             w in lower
             for w in [
-                "what did you know",
-                "what do you know",
-                "tell me about quantforge",
+                "who is quantforge",
                 "what is quantforge",
-                "quantforge",
-                "who made you",
-                "your knowledge",
-                "your training",
+                "tell me about quantforge",
+                "quantforge system",
+                "about quantforge",
+                "what do you know",
             ]
         ):
             return (
@@ -853,39 +881,49 @@ class TelegramAIAssistant:
                 f"3. <b>Live Telemetry & Execution:</b>\n"
                 f"   • <b>Current Equity:</b> ${equity:,.2f} | <b>Active Instrument:</b> {sym} (${bid:,.2f})\n"
                 f"   • <b>Open Exposure:</b> {len(open_pos)} Position(s) (Floating: {fl_sign}${fl_pnl:.2f})\n"
-                f"   • <b>Two-Way Execution:</b> I can execute market buys/sells or close positions on your voice command.\n\n"
-                f"💡 <i>Tip: Activate Google Gemini API in your .env to unlock full autonomous multi-turn neural reasoning!</i>"
+                f"   • <b>Two-Way Execution:</b> I can execute market buys/sells or close positions on your voice command."
             )
 
-        # 2. How are you / Bot State Check
-        if (
-            "how are you" in lower
-            or "how are you doing" in lower
-            or "are you alive" in lower
-            or "are you working" in lower
-            or "who are you" in lower
+        # 3. New to trading / "What do I need to know"
+        if any(
+            w in lower
+            for w in [
+                "start trading",
+                "learn trading",
+                "what do i need to know",
+                "how to trade",
+                "beginner",
+                "teach me",
+                "guide me",
+            ]
         ):
             return (
-                f"🤖 <b>I'm running at 100% capacity and fully synced!</b>\n\n"
-                f"• <b>Live Feed:</b> Connected to MT5 Bridge ({sym} at <code>${bid:,.2f}</code>)\n"
-                f"• <b>Account Equity:</b> <b>${equity:,.2f}</b>\n"
-                f"• <b>Active Exposure:</b> {len(open_pos)} Position(s) (Floating: <b>{fl_sign}${fl_pnl:.2f}</b>)\n"
-                f"• <b>Risk Shield:</b> Active at 1.0% with 2.0x ATR Cushion & Positive Breakeven.\n\n"
-                f"All systems are green. What would you like to do?"
+                f"🏛️ <b>Institutional Trading Foundations: The 4 Core Pillars</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Welcome, <b>{name}</b>. If you want to trade with consistent profitability, you must abandon retail guesswork and trade like an institutional quant:\n\n"
+                f"1. <b>Strict Position Sizing (The Van Tharp Law)</b>:\n"
+                f"• Position sizing is 90% of trading performance. Never risk more than <b>1.0% of your capital per trade</b> (~$0.30 on a $30 account) using 0.01 micro-lots. Capital preservation is your non-negotiable rule #1.\n\n"
+                f"2. <b>Smart Money Concepts (SMC & Wyckoff)</b>:\n"
+                f"• Markets move through Accumulation, Markup, Distribution, and Markdown. Never chase green candles; wait for liquidity sweeps (BSL/SSL) into unmitigated <b>Order Blocks</b> and Fair Value Gaps.\n\n"
+                f"3. <b>Probabilistic Execution (Mark Douglas Mindset)</b>:\n"
+                f"• Accept that no single trade matters. Focus on execution consistency across a sample size of 50–100 trades without fear or greed.\n\n"
+                f"4. <b>Systematic Automation</b>:\n"
+                f"• QuantForge uses the <b>Candidate 007 Scalper</b> (50 EMA trend filter, 20 Donchian breakout, 14 ATR volatility expansion, and 2.0x ATR structural cushion) to execute with zero emotional drag.\n\n"
+                f"Tell me what market you'd like to analyze (Gold or Bitcoin) and we'll dive right in! 📊⚡"
             )
 
-        # 3. Market Opinion / "What do you think of gold / bitcoin?" / "Where is market going?"
+        # 4. Market opinion / Market analysis
         if any(
             w in lower
             for w in [
                 "what do you think",
                 "market opinion",
+                "market analysis",
                 "where is the market",
                 "is gold going up",
                 "is gold going down",
                 "is bitcoin bullish",
                 "market trend",
-                "market analysis",
                 "what's the move",
             ]
         ):
@@ -905,43 +943,17 @@ class TelegramAIAssistant:
                 f"💡 <b>Quant Recommendation:</b> Let our systematic filters confirm the breakout. If you want to take an intraday scalp now, just say <i>'buy gold'</i> or <i>'sell gold'</i> and I'll execute with tight 1% risk."
             )
 
-        # 4. Should I close / Should we hold / Trade status advice
-        if any(
-            w in lower
-            for w in [
-                "should i close",
-                "should we close",
-                "shall i close",
-                "should we exit",
-                "should we hold",
-                "how is our trade",
-            ]
-        ):
-            if not has_pos:
-                return (
-                    f"ℹ️ We currently have <b>no open positions</b> on {sym}.\n\n"
-                    f"Account equity is safe at <b>${equity:,.2f}</b>. We are waiting for the next high-conviction breakout."
-                )
-            pos = open_pos[0]
-            side = pos.get("side", "BUY").upper()
-            entry_p = pos.get("open_price", 0.0)
-            if fl_pnl > 0.50:
-                return (
-                    f"💡 <b>Trade Advice on #{pos.get('order_id', '')} ({side}):</b>\n\n"
-                    f"You are currently in <b>positive green profit (+${fl_pnl:.2f})</b>!\n"
-                    f"• Entry: <code>${entry_p:,.2f}</code> | Current: <code>${bid:,.2f}</code>\n"
-                    f"• Breakeven Status: <b>{('Active (+3.5 Pips Locked)' if pos.get('breakeven_active') else 'Approaching +0.6R Threshold')}</b>\n\n"
-                    f"👉 If you're satisfied with banking this gain now, type <i>'close profit'</i> to lock it into cash immediately. Otherwise, our positive breakeven stop ensures your capital is protected."
-                )
-            else:
-                return (
-                    f"🛡️ <b>Trade Advice on #{pos.get('order_id', '')} ({side}):</b>\n\n"
-                    f"Current floating PnL is <b>{fl_sign}${fl_pnl:.2f}</b>.\n"
-                    f"• Entry: <code>${entry_p:,.2f}</code> | Current: <code>${bid:,.2f}</code>\n\n"
-                    f"This is well within our <b>2.0x ATR structural breathing room</b>. Gold and crypto frequently pull back to sweep liquidity before moving toward the 1.5R target. Our maximum loss is capped strictly at 1.0% ($0.30)."
-                )
+        # 5. Order block explanation
+        if "order block" in lower:
+            return (
+                "📚 <b>What is an Order Block?</b>\n\n"
+                "An Order Block is the last opposite candle before an aggressive, institutional displacement move.\n"
+                "• <b>Bullish OB:</b> Last down candle before an impulsive rally that broke structure.\n"
+                "• <b>Bearish OB:</b> Last up candle before an aggressive sell-off.\n\n"
+                "Smart money institutions place massive limit orders at these zones. QuantForge monitors these areas to catch high-probability continuation moves."
+            )
 
-        # 5. Risk & Safety / "Is my account safe?" / "Can we blow up?"
+        # 6. Risk & Safety / "Is my account safe?"
         if any(
             w in lower
             for w in [
@@ -966,43 +978,14 @@ class TelegramAIAssistant:
                 f"Your capital preservation is our #1 priority."
             )
 
-        # 6. Education / Concepts (Order Blocks, SMC, ATR, Breakeven)
-        if "order block" in lower:
-            return (
-                "📚 <b>What is an Order Block?</b>\n\n"
-                "An Order Block is the last opposite candle before an aggressive, institutional displacement move.\n"
-                "• <b>Bullish OB:</b> Last down candle before an impulsive rally that broke structure.\n"
-                "• <b>Bearish OB:</b> Last up candle before an aggressive sell-off.\n\n"
-                "Smart money institutions place massive limit orders at these zones. QuantForge monitors these areas to catch high-probability continuation moves."
-            )
-        if (
-            "what is atr" in lower
-            or "explain atr" in lower
-            or "breathing room" in lower
-        ):
-            return (
-                "📚 <b>What is ATR & Structural Breathing Room?</b>\n\n"
-                "<b>ATR (Average True Range)</b> measures the true volatility of an asset over the last 14 candles.\n\n"
-                "We use <b>2.0x ATR</b> to give trades healthy breathing room. Gold is volatile and wicks past tight stop losses before exploding into profit. The 2.0x ATR cushion prevents getting stopped out on random noise while maintaining strict risk limits."
-            )
-        if "breakeven" in lower or "positive breakeven" in lower:
-            return (
-                "🛡️ <b>How Positive Breakeven Works</b>\n\n"
-                "Standard breakeven moves your stop to your exact entry price, which can still cause a small loss due to broker spread and commission.\n\n"
-                "QuantForge uses <b>Positive Breakeven</b>: once the trade reaches +0.6R profit, we shift the stop <b>+3.5 pips PAST entry</b> into green territory. If the market reverses, you exit with net positive cash in your pocket!"
-            )
-
         # 7. Default Smart Conversational Assistant
         notes = self.get_notes(limit=2)
         notes_str = f" (Memory: '{notes[0]['note']}')" if notes else ""
         return (
-            f"🧠 <b>QuantForge AI Assistant:</b>\n\n"
-            f'I hear you loud and clear on: <i>"{text}"</i>\n\n'
-            f"• <b>Active Market:</b> {sym} at <code>${bid:,.2f}</code>\n"
-            f"• <b>Current Equity:</b> <b>${equity:,.2f}</b> (Floating: <b>{fl_sign}${fl_pnl:.2f}</b>)\n"
-            f"• <b>Exposure:</b> {len(open_pos)} open position(s)\n\n"
-            f"I can analyze market setups, manage active stops, explain concepts, or execute trades directly on your command (e.g. <i>'sell gold'</i>, <i>'close profit'</i>, <i>'remember ...'</i>).{notes_str}\n\n"
-            f"How would you like to proceed?"
+            f"👋 Hello <b>{name}</b>!\n\n"
+            f"QuantForge AI is live and connected to MT5 ({sym} at <code>${bid:,.2f}</code>, Equity: <b>${equity:,.2f}</b>).\n\n"
+            f"I can analyze market setups, explain SMC/Wyckoff strategies, review risk parameters, or execute trades directly on command.{notes_str}\n\n"
+            f"How can I assist your trading right now?"
         )
 
     def poll_once(self) -> None:

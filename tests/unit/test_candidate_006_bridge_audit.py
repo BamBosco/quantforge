@@ -15,10 +15,10 @@ from quantforge.infrastructure.mt5.xauusd_broker_profile_audit import (
 )
 
 
-def receipt() -> StoredObservation:
+def receipt(observation_id: str | None = None) -> StoredObservation:
     return StoredObservation(
         42,
-        "observation",
+        observation_id or observation().observation_id,
         2,
         datetime(2026, 8, 25, tzinfo=UTC),
         "accepted",
@@ -74,12 +74,24 @@ def test_persists_only_a_complete_dukascopy_bridge_receipt(tmp_path: Path) -> No
         audit.close()
 
 
+def test_rejects_mismatched_receipt(tmp_path: Path) -> None:
+    audit = SQLiteXAUUSDBrokerProfileAudit(tmp_path / "candidate_006.sqlite3")
+    try:
+        with pytest.raises(Candidate006BridgeAuditError, match="receipt to match"):
+            Candidate006BridgeAuditConsumer(audit).consume(
+                observation(), receipt("wrong-observation-id")
+            )
+        assert audit.count() == 0
+    finally:
+        audit.close()
+
+
 def test_rejects_missing_native_metadata(tmp_path: Path) -> None:
     audit = SQLiteXAUUSDBrokerProfileAudit(tmp_path / "candidate_006.sqlite3")
     try:
         item = observation()
         item.payload["instrument"]["specification"].pop("tick_value_loss")
         with pytest.raises(Candidate006BridgeAuditError, match="complete native"):
-            Candidate006BridgeAuditConsumer(audit).consume(item, receipt())
+            Candidate006BridgeAuditConsumer(audit).consume(item, receipt(item.observation_id))
     finally:
         audit.close()

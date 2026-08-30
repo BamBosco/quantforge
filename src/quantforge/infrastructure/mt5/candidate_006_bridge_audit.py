@@ -50,6 +50,10 @@ class Candidate006BridgeAuditConsumer:
         receipt: StoredObservation,
         payload: dict[str, Any],
     ) -> None:
+        if receipt.observation_id != observation.observation_id:
+            raise Candidate006BridgeAuditError(
+                "Candidate 006 requires the receipt to match the observation"
+            )
         if observation.schema_version != 2:
             raise Candidate006BridgeAuditError(
                 "Candidate 006 requires schema version 2"

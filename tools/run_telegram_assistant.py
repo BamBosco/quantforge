@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from quantforge.infrastructure.notifications.telegram_assistant import TelegramAIAssistant
+from quantforge.infrastructure.notifications.telegram_assistant import (  # noqa: E402
+    TelegramAIAssistant,
+)
 
 
 def main() -> None:

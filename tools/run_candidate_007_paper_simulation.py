@@ -39,7 +39,9 @@ def main() -> None:
 
     notifier = None
     if args.telegram:
-        from quantforge.infrastructure.notifications.telegram_notifier import TelegramNotifier
+        from quantforge.infrastructure.notifications.telegram_notifier import (
+            TelegramNotifier,
+        )
         notifier = TelegramNotifier()
         if notifier.is_configured:
             print("📱 Telegram Live Alerting: ENABLED")
@@ -116,7 +118,7 @@ def main() -> None:
 
         if res.order_approved:
             approved_orders += 1
-            print(f"  └─ 🛡️  RISK GATE: APPROVED | Sizing compliant with Account Risk Rules")
+            print("  └─ 🛡️  RISK GATE: APPROVED | Sizing compliant with Account Risk Rules")
 
         for ex in res.executions:
             if ex.fill is not None:

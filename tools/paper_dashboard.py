@@ -11,11 +11,8 @@ from __future__ import annotations
 
 import collections
 import json
-import os
 import sqlite3
-import subprocess
 import sys
-import threading
 import time
 import urllib.request
 from datetime import datetime
@@ -23,10 +20,9 @@ from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from quantforge.infrastructure.notifications.telegram_notifier import (
-    TelegramConfig,
     TelegramNotifier,
 )
 
@@ -1824,7 +1820,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
                 # Dispatch instant alert via Telegram
                 try:
-                    from quantforge.infrastructure.notifications.telegram_notifier import get_default_notifier
+                    from quantforge.infrastructure.notifications.telegram_notifier import (
+                        get_default_notifier,
+                    )
                     notifier = get_default_notifier()
                     for p_obj, st_reason, reason_desc, exit_p in positions_to_close:
                         ep = p_obj.get("open_price", 0.0)

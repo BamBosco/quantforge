@@ -51,39 +51,40 @@ def summarize_candidate_007_run(
     results: Sequence[ReplaySessionResult],
 ) -> Candidate007Summary:
     """Compute standard quantitative performance metrics from session outcomes."""
-    trades = [r for r in results if r.r_multiple is not None]
-    wins = [r for r in trades if r.r_multiple > 0]
-    losses = [r for r in trades if r.r_multiple <= 0]
+    trade_rs: list[Decimal] = [
+        r.r_multiple for r in results if r.r_multiple is not None
+    ]
+    win_rs: list[Decimal] = [r for r in trade_rs if r > Decimal("0")]
+    loss_rs: list[Decimal] = [r for r in trade_rs if r <= Decimal("0")]
 
-    completed_trades = len(trades)
-    win_count = len(wins)
-    loss_count = len(losses)
+    completed_trades = len(trade_rs)
+    win_count = len(win_rs)
+    loss_count = len(loss_rs)
     win_rate = (
         (Decimal(win_count) / Decimal(completed_trades) * 100)
         if completed_trades > 0
         else Decimal("0")
     )
 
-    total_r = sum((r.r_multiple for r in trades), Decimal("0"))
+    total_r = sum(trade_rs, Decimal("0"))
     mean_r = (
         (total_r / Decimal(completed_trades)) if completed_trades > 0 else Decimal("0")
     )
 
-    gross_profit = sum((r.r_multiple for r in wins), Decimal("0"))
-    gross_loss = abs(sum((r.r_multiple for r in losses), Decimal("0")))
+    gross_profit = sum(win_rs, Decimal("0"))
+    gross_loss = abs(sum(loss_rs, Decimal("0")))
     profit_factor = (
         (gross_profit / gross_loss)
-        if gross_loss > 0
-        else (Decimal("999.0") if gross_profit > 0 else Decimal("0"))
+        if gross_loss > Decimal("0")
+        else (Decimal("999.0") if gross_profit > Decimal("0") else Decimal("0"))
     )
 
     # Compute maximum drawdown in R-multiples
     running_r = Decimal("0")
     peak_r = Decimal("0")
     max_dd = Decimal("0")
-    for r in trades:
-        assert r.r_multiple is not None
-        running_r += r.r_multiple
+    for r_val in trade_rs:
+        running_r += r_val
         if running_r > peak_r:
             peak_r = running_r
         dd = peak_r - running_r

@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from quantforge.domain.events import (
@@ -129,13 +130,15 @@ class PaperTradingPipeline:
             reasons.append("market data is stale")
         if market.bid <= 0 or market.ask < market.bid:
             reasons.append("market quote is invalid")
+        if signal.side not in {"buy", "sell"}:
+            reasons.append("unsupported signal side")
 
         risk = (
             RiskDecision(False, tuple(reasons))
             if reasons
             else assess_pre_trade_risk(
                 SizingRequest(
-                    side=signal.side,
+                    side=cast(Literal["buy", "sell"], signal.side),
                     entry_price=signal.entry_price,
                     stop_loss_price=signal.stop_loss_price,
                     value_per_price_unit_per_lot=market.value_per_price_unit_per_lot,

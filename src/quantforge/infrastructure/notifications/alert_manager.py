@@ -31,11 +31,8 @@ class AlertManager:
         events: list[dict[str, Any]] = []
 
         # Handle direct signal intent dispatch
-        if (
-            getattr(result, "signal_generated", False)
-            and getattr(result, "intent", None) is not None
-        ):
-            intent = result.intent
+        intent = getattr(result, "intent", None)
+        if getattr(result, "signal_generated", False) and intent is not None:
             self.telegram.send_signal_alert(
                 instrument=observation.broker_symbol,
                 side=intent.side,

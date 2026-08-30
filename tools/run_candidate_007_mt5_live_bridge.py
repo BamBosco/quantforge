@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import os
-from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -28,13 +27,12 @@ def on_cycle_callback(result: RuntimeCycleResult, observation: ObservationEnvelo
     ny_time = observation.observed_at_utc.astimezone(NEW_YORK).strftime("%Y-%m-%d %H:%M:%S NY")
     quote = observation.payload.get("quote", {})
     bid = float(quote.get("bid", 0.0))
-    ask = float(quote.get("ask", 0.0))
 
     if result.signal_generated:
         print(f"\n[{ny_time}] 🎯 CANDIDATE 007 TREND SIGNAL | Symbol: {observation.broker_symbol} | Price: ${bid:,.2f}")
 
     if result.order_approved:
-        print(f"  └─ 🛡️  RISK GATE: APPROVED | 1.0% Risk Sizing Compliant")
+        print("  └─ 🛡️  RISK GATE: APPROVED | 1.0% Risk Sizing Compliant")
 
     for ex in result.executions:
         if ex.fill is not None:
@@ -104,8 +102,8 @@ def main() -> None:
     print("🛰️  QUANTFORGE HIGH-VELOCITY SMC SCALPER ENGINE — CANDIDATE 007", flush=True)
     print("=" * 75, flush=True)
     print(f"Target Asset       : {args.symbol} {'(Weekend Forward-Testing Mode)' if is_crypto else '(Live Gold Strategy)'}", flush=True)
-    print(f"Strategy Preset    : 🎯 High-Frequency SMC Scalper (Donchian, 20 EMA, 10 ATR, 1.5R Target)", flush=True)
-    print(f"Daily Trade Cap    : Up to 250 High-Velocity Scalps / Day", flush=True)
+    print("Strategy Preset    : 🎯 High-Frequency SMC Scalper (Donchian, 20 EMA, 10 ATR, 1.5R Target)", flush=True)
+    print("Daily Trade Cap    : Up to 250 High-Velocity Scalps / Day", flush=True)
     print(f"Auto-Execution     : {'🟢 ENABLED (Native MT5 OrderSend)' if args.auto_exec else '🟡 PAPER ONLY'}", flush=True)
     print(f"Bridge URL         : http://{args.host}:{args.port}/v1/mt5/snapshots", flush=True)
     print(f"Durable Journal    : {args.journal}", flush=True)

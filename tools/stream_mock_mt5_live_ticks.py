@@ -6,8 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo

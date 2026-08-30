@@ -91,12 +91,13 @@ def make_observation(
     )
 
 
-class FlexInstrumentRiskMetadata(dict):
+class FlexInstrumentRiskMetadata(dict[str, InstrumentRiskMetadata]):
     """Dynamic risk metadata dictionary supporting broker prefix/suffix variations."""
 
     def __getitem__(self, key: str) -> InstrumentRiskMetadata:
         if key in self:
-            return super().__getitem__(key)
+            val: InstrumentRiskMetadata = super().__getitem__(key)
+            return val
         norm = key.strip("#._/ ").replace("/", "").upper()
         if "BTC" in norm or "ETH" in norm or "SOL" in norm:
             return InstrumentRiskMetadata(Decimal("1"))
@@ -104,13 +105,13 @@ class FlexInstrumentRiskMetadata(dict):
             return InstrumentRiskMetadata(Decimal("100"))
         return InstrumentRiskMetadata(Decimal("100000"))
 
-    def get(self, key: str, default: object = None) -> InstrumentRiskMetadata:
+    def get(self, key: str, default: InstrumentRiskMetadata | None = None) -> InstrumentRiskMetadata:  # type: ignore[override]
         try:
             return self[key]
         except KeyError:
-            return (
-                default if default is not None else InstrumentRiskMetadata(Decimal("1"))
-            )
+            if default is not None:
+                return default
+            return InstrumentRiskMetadata(Decimal("1"))
 
 
 def build_candidate_007_paper_host(

@@ -48,6 +48,7 @@ class TelegramConfig:
     bot_token: str = ""
     chat_id: str = ""
     enabled: bool = True
+    gemini_api_key: str = ""
 
     @classmethod
     def from_env(cls) -> TelegramConfig:

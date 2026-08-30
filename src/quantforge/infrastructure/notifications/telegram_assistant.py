@@ -31,6 +31,10 @@ COCKPIT_STATE_URL: Final = "http://127.0.0.1:8080/api/state"
 COCKPIT_EXECUTE_URL: Final = "http://127.0.0.1:8080/api/execute_trade"
 COCKPIT_CLOSE_URL: Final = "http://127.0.0.1:8080/api/close_all"
 COCKPIT_CLOSE_PROFIT_URL: Final = "http://127.0.0.1:8080/api/close_profit"
+MT5_LATEST_URL: Final = "http://127.0.0.1:8765/v1/mt5/latest"
+BRIDGE_TOKEN: Final = os.environ.get(
+    "QUANTFORGE_MT5_BRIDGE_TOKEN", "quantforge-secret-token"
+)
 
 
 class TelegramAIAssistant:
@@ -174,8 +178,9 @@ class TelegramAIAssistant:
 
     def _get_gemini_api_key(self) -> str:
         """Resolve Google Gemini API Key from config, environment, or default fallback."""
-        if getattr(self.config, "gemini_api_key", None):
-            return self.config.gemini_api_key.strip()
+        cfg_key = getattr(self.config, "gemini_api_key", None)
+        if isinstance(cfg_key, str) and cfg_key.strip():
+            return str(cfg_key.strip())
 
         key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if key:
@@ -187,8 +192,8 @@ class TelegramAIAssistant:
                 with open(cfg_path, encoding="utf-8") as f:
                     data = json.load(f)
                     k = data.get("gemini_api_key")
-                    if k:
-                        return k.strip()
+                    if isinstance(k, str) and k.strip():
+                        return str(k.strip())
             except Exception:
                 pass
 
@@ -361,19 +366,23 @@ class TelegramAIAssistant:
         )
 
         # Build clean alternating chat turns for Gemini API
-        contents = []
+        contents: list[dict[str, Any]] = []
         last_role = None
         for h in history:
             role = "user" if h["role"] == "user" else "model"
             if role == last_role:
                 if contents:
-                    contents[-1]["parts"][0]["text"] += f"\n{h['text']}"
+                    parts = contents[-1].get("parts")
+                    if isinstance(parts, list) and parts and isinstance(parts[0], dict):
+                        parts[0]["text"] = str(parts[0].get("text", "")) + f"\n{h['text']}"
             else:
                 contents.append({"role": role, "parts": [{"text": h["text"]}]})
                 last_role = role
 
         if last_role == "user" and contents:
-            contents[-1]["parts"][0]["text"] += f"\n{text}"
+            parts = contents[-1].get("parts")
+            if isinstance(parts, list) and parts and isinstance(parts[0], dict):
+                parts[0]["text"] = str(parts[0].get("text", "")) + f"\n{text}"
         else:
             contents.append({"role": "user", "parts": [{"text": text}]})
 
@@ -491,7 +500,8 @@ class TelegramAIAssistant:
                 pass
 
         # 3. Public live market price fallback (for cloud runners or when local bridge is starting)
-        if context["bid"] <= 0.0:
+        bid_val = context.get("bid")
+        if not isinstance(bid_val, (int, float)) or float(bid_val) <= 0.0:
             try:
                 pub_req = urllib.request.Request(
                     "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",

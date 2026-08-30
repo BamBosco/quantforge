@@ -1,0 +1,12 @@
+===========================================================================
+🛰️  QUANTFORGE HIGH-VELOCITY SMC SCALPER ENGINE — CANDIDATE 007
+===========================================================================
+Target Asset       : BTCUSDm (Weekend Forward-Testing Mode)
+Strategy Preset    : 🎯 High-Frequency SMC Scalper (Donchian, 20 EMA, 10 ATR, 1.5R Target)
+Daily Trade Cap    : Up to 250 High-Velocity Scalps / Day
+Auto-Execution     : 🟢 ENABLED (Native MT5 OrderSend)
+Bridge URL         : http://127.0.0.1:8765/v1/mt5/snapshots
+Durable Journal    : data/paper_mode/candidate_007_paper.sqlite3
+===========================================================================
+Scanning BTCUSDm for institutional SMC breakout setups...
+

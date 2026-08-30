@@ -70,15 +70,16 @@ def _integer(value: Any, path: str, *, minimum: int | None = None) -> int:
     if isinstance(value, str):
         try:
             value = int(value)
-        except (ValueError, TypeError):
-            raise ObservationValidationError(f"{path} must be an integer")
+        except (ValueError, TypeError) as err:
+            raise ObservationValidationError(f"{path} must be an integer") from err
     elif isinstance(value, float) and value.is_integer():
         value = int(value)
     elif not isinstance(value, int):
         raise ObservationValidationError(f"{path} must be an integer")
-    if minimum is not None and value < minimum:
+    res_int = int(value)
+    if minimum is not None and res_int < minimum:
         raise ObservationValidationError(f"{path} must be at least {minimum}")
-    return value
+    return res_int
 
 
 def _number(value: Any, path: str, *, minimum: float | None = None) -> float:
@@ -87,8 +88,8 @@ def _number(value: Any, path: str, *, minimum: float | None = None) -> float:
     if isinstance(value, str):
         try:
             value = float(value)
-        except (ValueError, TypeError):
-            raise ObservationValidationError(f"{path} must be a number")
+        except (ValueError, TypeError) as err:
+            raise ObservationValidationError(f"{path} must be a number") from err
     elif not isinstance(value, (int, float)):
         raise ObservationValidationError(f"{path} must be a number")
     number = float(value)

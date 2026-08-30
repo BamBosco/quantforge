@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal
 
 from quantforge.application.candidate_007_paper_demo import (
     build_candidate_007_paper_host,
@@ -115,23 +116,25 @@ def create_candidate_007_live_bridge(
                 and ex.fill is not None
             ):
                 side = ex.outcome.side
-                entry_p = float(ex.fill.price)
-                dist = 85.0 if "BTC" in observation.broker_symbol.upper() else 1.5
-                sl = entry_p - dist if side == "buy" else entry_p + dist
-                tp = entry_p + (dist * 1.5) if side == "buy" else entry_p - (dist * 1.5)
-                req = OrderRequest(
-                    order_id=str(ex.outcome.order_id),
-                    symbol=observation.broker_symbol,
-                    side=side,
-                    volume=float(ex.outcome.quantity),
-                    order_type="market",
-                    price=entry_p,
-                    stop_loss=sl,
-                    take_profit=tp,
-                    magic_number=7007,
-                    comment="QuantForge C007",
-                )
-                execution_queue.enqueue_order(req)
+                if side in {"buy", "sell"}:
+                    order_side: Literal["buy", "sell"] = "buy" if side == "buy" else "sell"
+                    entry_p = float(ex.fill.price)
+                    dist = 85.0 if "BTC" in observation.broker_symbol.upper() else 1.5
+                    sl = entry_p - dist if order_side == "buy" else entry_p + dist
+                    tp = entry_p + (dist * 1.5) if order_side == "buy" else entry_p - (dist * 1.5)
+                    req = OrderRequest(
+                        order_id=str(ex.outcome.order_id),
+                        symbol=observation.broker_symbol,
+                        side=order_side,
+                        volume=float(ex.outcome.quantity),
+                        order_type="market",
+                        price=entry_p,
+                        stop_loss=sl,
+                        take_profit=tp,
+                        magic_number=7007,
+                        comment="QuantForge C007",
+                    )
+                    execution_queue.enqueue_order(req)
 
         if on_cycle is not None:
             on_cycle(result, observation)

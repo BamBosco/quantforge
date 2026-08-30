@@ -534,14 +534,28 @@ class TelegramAIAssistant:
     def process_incoming_message(
         self, chat_id: str, text: str, user_name: str = ""
     ) -> str:
-        """Process incoming user text: handles strict slash commands or routes directly to Google Gemini AI Advisor."""
+        """Process incoming user text through Google Gemini AI Neural Quant Brain with fallback to offline engine."""
         cleaned = text.strip()
         lower = cleaned.lower()
         self.store_chat("user", cleaned, chat_id=chat_id, meta={"user": user_name})
 
+        # Save to SQLite memory store if /remember is used
+        remember_note = ""
+        if lower.startswith("/remember"):
+            remember_note = re.sub(r"^/remember\s*", "", cleaned, flags=re.IGNORECASE).strip()
+            if remember_note:
+                self.add_note(remember_note, category="user_instruction")
+
         ctx = self.fetch_live_system_context()
 
-        # 1. Strict Command: /start or /help
+        # 1. Primary: Google Gemini Neural AI Engine for genuine, dynamic, non-templated reasoning
+        gemini_reply = self.query_gemini_ai(cleaned, user_name, ctx, chat_id)
+        if gemini_reply:
+            self.store_chat("assistant", gemini_reply, chat_id=chat_id)
+            return gemini_reply
+
+        # 2. Fallback offline handlers (used only when Gemini is unconfigured or offline)
+        # Strict Command: /start or /help
         if lower in {"/start", "/help", "menu"}:
             reply = (
                 f"👋 <b>Welcome, {user_name or 'Trader'}!</b>\n"
@@ -777,13 +791,11 @@ class TelegramAIAssistant:
 
         # 9. Strict Command: /remember [note]
         if lower.startswith("/remember"):
-            note = re.sub(r"^/remember\s*", "", cleaned, flags=re.IGNORECASE).strip()
-            if note:
-                self.add_note(note, category="user_instruction")
+            if remember_note:
                 reply = (
                     f"🧠 <b>Saved to Persistent Memory!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f'<i>"{note}"</i>\n\n'
+                    f'<i>"{remember_note}"</i>\n\n'
                     f"Recorded into SQLite brain. I will keep this in mind during all future market analyses."
                 )
             else:

@@ -47,6 +47,23 @@ class TelegramAIAssistant:
         self._last_update_id = 0
         self._is_running = False
         self._init_db()
+        self._fast_forward_updates()
+
+    def _fast_forward_updates(self) -> None:
+        """Fast-forward update watermark to drop stale messages queued while offline."""
+        if not self.config.bot_token:
+            return
+        try:
+            url = f"https://api.telegram.org/bot{self.config.bot_token}/getUpdates?offset=-1&timeout=1"
+            req = urllib.request.Request(url, headers={"User-Agent": "QuantForge-AIBrain/1.0"})
+            with urllib.request.urlopen(req, context=self._ssl_ctx, timeout=5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    updates = data.get("result", [])
+                    if updates:
+                        self._last_update_id = updates[-1].get("update_id", 0)
+        except Exception:
+            pass
 
     def _init_db(self) -> None:
         """Initialize the persistent SQLite memory tables."""
@@ -319,11 +336,12 @@ class TelegramAIAssistant:
             f"• [ACTION:CLOSE_ALL] (Flatten all open positions)\n"
             f"• [ACTION:CLOSE_PROFIT] (Close only profitable positions)\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🎯 CONVERSATIONAL DIRECTIVES:\n"
-            f"- Speak naturally, dynamically, and insightfully as an elite quant partner and advisor.\n"
-            f"- NEVER output robotic canned greeting templates (e.g. 'I hear you loud and clear on...').\n"
-            f"- Offer rich, tailored, quantitative advice citing relevant concepts from Wyckoff, López de Prado, Chan, Taleb, or SMC whenever helpful.\n"
-            f"- Use crisp Telegram HTML tags (<b>bold</b>, <code>code</code>, <i>italic</i>) for formatting."
+            f"🎯 RIGOROUS AI DIRECTIVES:\n"
+            f"- You are a razor-sharp, evidence-based institutional quantitative mentor and execution intelligence.\n"
+            f"- Be confident, direct, and mathematically precise. DO NOT hallucinate, invent false background stories, or apologize submissively.\n"
+            f"- If challenged or questioned (e.g. 'Are you sure?', 'Is that right?'), do NOT blindly fold or validate user doubts unless an actual data fact is wrong. Stand firmly on verified quantitative edge, live telemetry, and mathematical risk principles.\n"
+            f"- Give a SINGLE, comprehensive, engaging reply. NEVER prefix or suffix your responses with boilerplate greetings or disclaimers.\n"
+            f"- Format all responses cleanly using Telegram HTML tags (<b>bold</b>, <code>code</code>, <i>italic</i>)."
         )
 
         # Build clean alternating chat turns for Gemini API

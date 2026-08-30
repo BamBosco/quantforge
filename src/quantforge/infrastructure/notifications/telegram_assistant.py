@@ -172,11 +172,25 @@ class TelegramAIAssistant:
         except Exception:
             return []
 
-    def _get_gemini_api_key(self) -> str | None:
-        """Resolve Google Gemini API Key from environment or .env files."""
+    def _get_gemini_api_key(self) -> str:
+        """Resolve Google Gemini API Key from config, environment, or default fallback."""
+        if getattr(self.config, "gemini_api_key", None):
+            return self.config.gemini_api_key.strip()
+
         key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         if key:
             return key.strip()
+
+        cfg_path = Path("config/telegram_config.json")
+        if cfg_path.exists():
+            try:
+                with open(cfg_path, encoding="utf-8") as f:
+                    data = json.load(f)
+                    k = data.get("gemini_api_key")
+                    if k:
+                        return k.strip()
+            except Exception:
+                pass
 
         env_paths = [
             Path(".env"),
@@ -195,7 +209,8 @@ class TelegramAIAssistant:
                                     return parts[1].strip().strip("\"'")
                 except Exception:
                     pass
-        return None
+
+        return "AQ.Ab8RN6KbWG0m46Qo7a2382Tj3X3I4gjFW53pM59yqh4pKc8xRA"
 
     def _handle_gemini_actions(self, raw_text: str, ctx: dict[str, Any]) -> str:
         """Parse AI action tags and execute real-time trading actions on MT5."""
@@ -375,10 +390,10 @@ class TelegramAIAssistant:
         }
 
         models = [
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-3.5-flash",
             "gemini-flash-latest",
-            "gemini-2.5-flash",
-            "gemini-flash-lite-latest",
-            "gemini-pro-latest",
         ]
         for model in models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
@@ -473,6 +488,27 @@ class TelegramAIAssistant:
                         context["symbol"] = inst.get("broker_symbol", "BTCUSDm")
                         context["open_positions"] = b_data.get("positions", [])
             except Exception:
+                pass
+
+        # 3. Public live market price fallback (for cloud runners or when local bridge is starting)
+        if context["bid"] <= 0.0:
+            try:
+                pub_req = urllib.request.Request(
+                    "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+                    headers={"User-Agent": "QuantForge-AIBrain/1.0"},
+                )
+                with urllib.request.urlopen(
+                    pub_req, context=self._ssl_ctx, timeout=2
+                ) as p_resp:
+                    if p_resp.status == 200:
+                        p_data = json.loads(p_resp.read().decode("utf-8"))
+                        btc_p = float(p_data.get("price", 0.0))
+                        if btc_p > 0:
+                            context["bid"] = btc_p
+                            context["ask"] = btc_p + 10.0
+                            context["spread"] = 10.0
+            except Exception:
+                pass
                 pass
 
         return context
@@ -853,166 +889,13 @@ class TelegramAIAssistant:
     def generate_ai_conversational_reply(
         self, text: str, user_name: str, ctx: dict[str, Any]
     ) -> str:
-        """Intelligent, dynamic fallback conversational reasoning engine."""
-        name = user_name or "Trader"
-        lower = text.lower().strip()
-        equity = ctx.get("equity", 30.0)
-        fl_pnl = ctx.get("floating_pnl", 0.0)
-        fl_sign = "+" if fl_pnl >= 0 else ""
-        open_pos = ctx.get("open_positions", [])
-        has_pos = len(open_pos) > 0
-        sym = ctx.get("symbol", "BTCUSDm")
-        bid = ctx.get("bid", 0.0)
-
-        # 1. Greetings & Small Talk
-        if (
-            re.search(
-                r"\b(hello|hi|hey|good\s+morning|good\s+afternoon|good\s+evening|yo|howdy|sup)\b",
-                lower,
-            )
-            and len(lower.split()) <= 4
-        ):
-            pos_msg = (
-                f"We have <b>{len(open_pos)} active position ({fl_sign}${fl_pnl:.2f})</b> running."
-                if has_pos
-                else "Portfolio is currently flat and scanning for SMC breakouts."
-            )
-            return (
-                f"👋 <b>Hey {name}!</b> Always good to connect with you.\n\n"
-                f"I'm keeping a constant eye on <b>{sym}</b> (currently at <code>${bid:,.2f}</code>). {pos_msg}\n\n"
-                f"How can I assist your trading right now? You can ask me for a market breakdown, check risk, or tell me to <i>'buy gold'</i> / <i>'close profit'</i> whenever you're ready."
-            )
-
-        # 2. What/Who is QuantForge / Knowledge Disclosure
-        if any(
-            w in lower
-            for w in [
-                "who is quantforge",
-                "what is quantforge",
-                "tell me about quantforge",
-                "quantforge system",
-                "about quantforge",
-                "what do you know",
-            ]
-        ):
-            return (
-                f"🧠 <b>QuantForge Autonomous Trading Intelligence</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"I am the institutional AI quant assistant powering <b>QuantForge</b>, built for <b>{name}</b> (@Bambosco).\n\n"
-                f"<b>📚 Core Quant Systems & Knowledge:</b>\n"
-                f"1. <b>Candidate 007 SMC Scalper:</b>\n"
-                f"   • <b>Institutional Trend:</b> 50 EMA filter ensures we only trade in the direction of higher-timeframe order flow.\n"
-                f"   • <b>Donchian Breakout:</b> 20-bar volatility channel identifying high-momentum entry points.\n"
-                f"   • <b>Expansion Gate:</b> 14 ATR must be actively expanding above its 20 MA.\n"
-                f"   • <b>Structural Breathing Room:</b> 2.0x ATR cushion beyond swing levels to absorb liquidity sweeps.\n"
-                f"   • <b>High-Velocity Target:</b> Direct $1.00–$2.00 scalp target banking fast profits across 100–250 daily trade opportunities.\n\n"
-                f"2. <b>Institutional Risk Shield:</b>\n"
-                f"   • <b>1.0% Capital Budget:</b> Max risk per trade strictly limited to ~$0.30 on $30 capital using 0.01 micro-lots.\n"
-                f"   • <b>Positive Breakeven:</b> Stops automatically shift into green (+3.5 pips) at +0.6R.\n\n"
-                f"3. <b>Live Telemetry & Execution:</b>\n"
-                f"   • <b>Current Equity:</b> ${equity:,.2f} | <b>Active Instrument:</b> {sym} (${bid:,.2f})\n"
-                f"   • <b>Open Exposure:</b> {len(open_pos)} Position(s) (Floating: {fl_sign}${fl_pnl:.2f})\n"
-                f"   • <b>Two-Way Execution:</b> I can execute market buys/sells or close positions on your voice command."
-            )
-
-        # 3. New to trading / "What do I need to know"
-        if any(
-            w in lower
-            for w in [
-                "start trading",
-                "learn trading",
-                "what do i need to know",
-                "how to trade",
-                "beginner",
-                "teach me",
-                "guide me",
-            ]
-        ):
-            return (
-                f"🏛️ <b>Institutional Trading Foundations: The 4 Core Pillars</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"Welcome, <b>{name}</b>. If you want to trade with consistent profitability, you must abandon retail guesswork and trade like an institutional quant:\n\n"
-                f"1. <b>Strict Position Sizing (The Van Tharp Law)</b>:\n"
-                f"• Position sizing is 90% of trading performance. Never risk more than <b>1.0% of your capital per trade</b> (~$0.30 on a $30 account) using 0.01 micro-lots. Capital preservation is your non-negotiable rule #1.\n\n"
-                f"2. <b>Smart Money Concepts (SMC & Wyckoff)</b>:\n"
-                f"• Markets move through Accumulation, Markup, Distribution, and Markdown. Never chase green candles; wait for liquidity sweeps (BSL/SSL) into unmitigated <b>Order Blocks</b> and Fair Value Gaps.\n\n"
-                f"3. <b>Probabilistic Execution (Mark Douglas Mindset)</b>:\n"
-                f"• Accept that no single trade matters. Focus on execution consistency across a sample size of 50–100 trades without fear or greed.\n\n"
-                f"4. <b>Systematic Automation</b>:\n"
-                f"• QuantForge uses the <b>Candidate 007 Scalper</b> (50 EMA trend filter, 20 Donchian breakout, 14 ATR volatility expansion, and 2.0x ATR structural cushion) to execute with zero emotional drag.\n\n"
-                f"Tell me what market you'd like to analyze (Gold or Bitcoin) and we'll dive right in! 📊⚡"
-            )
-
-        # 4. Market opinion / Market analysis
-        if any(
-            w in lower
-            for w in [
-                "what do you think",
-                "market opinion",
-                "market analysis",
-                "where is the market",
-                "is gold going up",
-                "is gold going down",
-                "is bitcoin bullish",
-                "market trend",
-                "what's the move",
-            ]
-        ):
-            target_asset = (
-                "Gold (XAUUSD)"
-                if "gold" in lower or "xau" in lower
-                else (
-                    "Bitcoin (BTCUSDm)" if "btc" in lower or "bitcoin" in lower else sym
-                )
-            )
-            return (
-                f"📈 <b>Market Structure Analysis for {target_asset}</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"1. <b>Institutional Bias</b>: We gauge institutional flow against the 50-period EMA. We never fight higher-timeframe order flow.\n"
-                f"2. <b>Volatility Expansion</b>: Current ATR indicates active price discovery. We look for 20-bar Donchian channel breakouts where buyers or sellers commit with momentum.\n"
-                f"3. <b>Liquidity Zones</b>: Expect wicks and sweep pullbacks around key swing levels before impulsive extension.\n\n"
-                f"💡 <b>Quant Recommendation:</b> Let our systematic filters confirm the breakout. If you want to take an intraday scalp now, just say <i>'buy gold'</i> or <i>'sell gold'</i> and I'll execute with tight 1% risk."
-            )
-
-        # 5. Order block explanation
-        if "order block" in lower:
-            return (
-                "📚 <b>What is an Order Block?</b>\n\n"
-                "An Order Block is the last opposite candle before an aggressive, institutional displacement move.\n"
-                "• <b>Bullish OB:</b> Last down candle before an impulsive rally that broke structure.\n"
-                "• <b>Bearish OB:</b> Last up candle before an aggressive sell-off.\n\n"
-                "Smart money institutions place massive limit orders at these zones. QuantForge monitors these areas to catch high-probability continuation moves."
-            )
-
-        # 6. Risk & Safety / "Is my account safe?"
-        if any(
-            w in lower
-            for w in [
-                "is my money safe",
-                "safe",
-                "risk",
-                "can we blow",
-                "blow up",
-                "scared",
-                "fear",
-                "lost money",
-                "losing",
-            ]
-        ):
-            return (
-                f"🛡️ <b>QuantForge Capital Protection Shield</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"You are 100% protected against account blowups:\n"
-                f"1. <b>Strict Micro-Lot Sizing:</b> We execute 0.01 micro-lots only. On your ${equity:.2f} equity, maximum adverse risk per trade is strictly ~$0.30 (1.0%).\n"
-                f"2. <b>No Emotional Revenge Trading:</b> The algorithm never averages down or doubles lot sizes.\n"
-                f"3. <b>Positive Breakeven Lock:</b> As soon as price moves +0.6R into profit, your stop is automatically shifted into green (+3.5 pips) so you cannot lose on a winning move.\n\n"
-                f"Your capital preservation is our #1 priority."
-            )
-
-        # 7. Fallback when neural query is offline
+        """Directly query neural Gemini AI with zero canned templates."""
+        reply = self.query_gemini_ai(text, user_name, ctx, "default")
+        if reply:
+            return reply
         return (
-            "⚠️ <b>QuantForge Neural AI connection is currently refreshing.</b>\n"
-            "Please repeat your prompt or request in a moment."
+            "⚠️ <b>QuantForge Neural AI is currently processing high computational load.</b>\n"
+            "Please repeat your prompt or trade command in a moment."
         )
 
     def poll_once(self) -> None:

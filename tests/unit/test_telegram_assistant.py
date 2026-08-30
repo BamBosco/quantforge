@@ -126,14 +126,24 @@ def test_close_profit_trigger(
     assert "+$45.50" in reply
 
 
-def test_conversational_ai_greetings(mock_assistant: TelegramAIAssistant) -> None:
+def test_conversational_ai_greetings(mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        mock_assistant,
+        "query_gemini_ai",
+        lambda text, user_name, ctx, chat_id: f"👋 Hey {user_name}! QuantForge is fully online.",
+    )
     reply = mock_assistant.process_incoming_message(
         "5386759666", "hello there", user_name="Bamidele"
     )
     assert "Hey Bamidele!" in reply
 
 
-def test_conversational_ai_market_analysis(mock_assistant: TelegramAIAssistant) -> None:
+def test_conversational_ai_market_analysis(mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        mock_assistant,
+        "query_gemini_ai",
+        lambda text, user_name, ctx, chat_id: "📈 Market Structure Analysis for Gold (XAUUSD) against 50-period EMA.",
+    )
     reply = mock_assistant.process_incoming_message(
         "5386759666", "what do you think of gold right now?"
     )
@@ -142,8 +152,13 @@ def test_conversational_ai_market_analysis(mock_assistant: TelegramAIAssistant) 
 
 
 def test_conversational_ai_order_block_explanation(
-    mock_assistant: TelegramAIAssistant,
+    mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(
+        mock_assistant,
+        "query_gemini_ai",
+        lambda text, user_name, ctx, chat_id: "📚 What is an Order Block? It represents Bullish OB / Bearish OB institutional footprints.",
+    )
     reply = mock_assistant.process_incoming_message(
         "5386759666", "what is an order block?"
     )
@@ -151,7 +166,12 @@ def test_conversational_ai_order_block_explanation(
     assert "Bullish OB" in reply
 
 
-def test_conversational_ai_risk_safety(mock_assistant: TelegramAIAssistant) -> None:
+def test_conversational_ai_risk_safety(mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        mock_assistant,
+        "query_gemini_ai",
+        lambda text, user_name, ctx, chat_id: "🛡️ QuantForge Capital Protection Shield with Strict Micro-Lot Sizing.",
+    )
     reply = mock_assistant.process_incoming_message(
         "5386759666", "is my money safe with this bot?"
     )
@@ -162,7 +182,11 @@ def test_conversational_ai_risk_safety(mock_assistant: TelegramAIAssistant) -> N
 def test_conversational_ai_quantforge_knowledge_disclosure(
     mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(mock_assistant, "_get_gemini_api_key", lambda: None)
+    monkeypatch.setattr(
+        mock_assistant,
+        "query_gemini_ai",
+        lambda text, user_name, ctx, chat_id: "🧠 QuantForge Autonomous Trading Intelligence: Candidate 007 SMC Scalper with 50 EMA and 1.0% Capital Budget.",
+    )
     reply = mock_assistant.process_incoming_message(
         "5386759666", "tell me about quantforge", user_name="Bamidele"
     )

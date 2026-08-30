@@ -206,8 +206,8 @@ def create_server(
     execution_queue: AutoExecutionQueue | None = None,
 ) -> ReadOnlyBridgeServer:
     """Create a loopback-only bridge server with its token held in memory."""
-    if host not in {"127.0.0.1", "::1", "localhost", "0.0.0.0"}:
-        raise ValueError("the read-only bridge may bind only to loopback or local interfaces")
+    if host not in {"127.0.0.1", "::1", "localhost"}:
+        raise ValueError("the read-only bridge may bind only to loopback")
     if not token:
         raise ValueError("bridge token must not be empty")
     candidate_006_audit = (

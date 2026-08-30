@@ -328,6 +328,23 @@ double ExtractJsonDouble(string json, string key)
    return(StringToDouble(val_str));
   }
 
+string CompletedCandlesJson(int max_bars = 60)
+  {
+   MqlRates rates[];
+   ResetLastError();
+   int copied = CopyRates(g_symbol, PERIOD_M1, 1, max_bars, rates);
+   if(copied <= 0) return("[]");
+
+   string json = "[";
+   for(int i = copied - 1; i >= 0; i--)
+     {
+      if(i < copied - 1) json += ",";
+      json += CandleJson(rates[i]);
+     }
+   json += "]";
+   return(json);
+  }
+
 //+------------------------------------------------------------------+
 //| Core Snapshot Sender                                             |
 //+------------------------------------------------------------------+
@@ -344,12 +361,12 @@ void SendSnapshot()
       return;
      }
 
-   MqlRates minute_bars[];
+   MqlRates latest_m1[];
    ResetLastError();
-   int copied = CopyRates(g_symbol, PERIOD_M1, 0, 2, minute_bars);
-   bool has_completed_m1 = (copied >= 2);
+   int copied = CopyRates(g_symbol, PERIOD_M1, 0, 1, latest_m1);
+   bool has_completed_m1 = (copied > 0);
    string missing = has_completed_m1 ? "[]" : "[\"completed_m1\"]";
-   string candle = has_completed_m1 ? ("[" + CandleJson(minute_bars[0]) + "]") : "[]";
+   string candle = CompletedCandlesJson(60);
 
    string timestamp = UtcTimestamp(TimeGMT());
 

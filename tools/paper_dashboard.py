@@ -1068,7 +1068,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }, 3500);
     }
 
+    let isExecutingTrade = false;
     async function executeTrade(side) {
+      if (isExecutingTrade) return;
+      isExecutingTrade = true;
+      const buyBtn = document.getElementById('btn-buy');
+      const sellBtn = document.getElementById('btn-sell');
+      if (buyBtn) buyBtn.style.opacity = '0.5';
+      if (sellBtn) sellBtn.style.opacity = '0.5';
+
       try {
         if (side === 'buy') playBuySound();
         else playSellSound();
@@ -1087,6 +1095,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
       } catch (err) {
         showToast(`❌ Network error: ${err}`, 'error');
+      } finally {
+        setTimeout(() => {
+          isExecutingTrade = false;
+          if (buyBtn) buyBtn.style.opacity = '1';
+          if (sellBtn) sellBtn.style.opacity = '1';
+        }, 1200);
       }
     }
 
@@ -1708,10 +1722,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 pass
 
         # If live MT5 positions exist in snapshot, merge them only if not already closed
-        if raw_mt5_positions:
+        if raw_mt5_positions is not None:
+            if len(raw_mt5_positions) > 0:
+                open_positions = {k: v for k, v in open_positions.items() if not k.startswith("qf-")}
             for mt5_p in raw_mt5_positions:
                 ticket_id = str(mt5_p.get("ticket") or mt5_p.get("id") or "")
-                if ticket_id and ticket_id not in open_positions and ticket_id not in seen_closed_order_ids:
+                if ticket_id and ticket_id not in seen_closed_order_ids:
                     open_price = float(mt5_p.get("open_price", mt5_p.get("price_open", 0.0)))
                     profit = float(mt5_p.get("profit", 0.0))
                     open_positions[ticket_id] = {

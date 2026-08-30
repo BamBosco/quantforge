@@ -34,6 +34,7 @@ class Candidate007LiveConsumer:
         self.alert_manager = alert_manager or AlertManager()
         self.on_cycle = on_cycle
         self._last_completed_bar_time: str | None = None
+        self._seen_bar_times: set[str] = set()
         self._processed_observations = 0
 
     def consume(
@@ -42,27 +43,33 @@ class Candidate007LiveConsumer:
         """Process an incoming MT5 observation through strategy, risk runtime, and alerts."""
         self._processed_observations += 1
 
-        # 1. Ingest newly completed M1 candle if present in observation payload
+        # 1. Ingest all newly completed M1 candles from observation payload for immediate warmup
         candles = observation.payload.get("candles", {})
         completed_candles = (
             candles.get("completed", []) if isinstance(candles, dict) else []
         )
-        if completed_candles:
-            latest_candle = completed_candles[-1]
-            candle_time = latest_candle.get("open_time_utc")
-            if candle_time and candle_time != self._last_completed_bar_time:
-                open_time = datetime.fromisoformat(candle_time)
-                bar = MinuteBar(
-                    timestamp=open_time,
-                    open=Decimal(str(latest_candle["open"])),
-                    high=Decimal(str(latest_candle["high"])),
-                    low=Decimal(str(latest_candle["low"])),
-                    close=Decimal(str(latest_candle["close"])),
-                    tick_volume=int(latest_candle.get("tick_volume", 10)),
-                    spread_points=20,
-                )
-                self.strategy.update_bar(bar)
-                self._last_completed_bar_time = candle_time
+        if isinstance(completed_candles, list):
+            for latest_candle in completed_candles:
+                if not isinstance(latest_candle, dict):
+                    continue
+                candle_time = latest_candle.get("open_time_utc")
+                if candle_time and candle_time not in self._seen_bar_times:
+                    self._seen_bar_times.add(candle_time)
+                    try:
+                        open_time = datetime.fromisoformat(candle_time)
+                        bar = MinuteBar(
+                            timestamp=open_time,
+                            open=Decimal(str(latest_candle["open"])),
+                            high=Decimal(str(latest_candle["high"])),
+                            low=Decimal(str(latest_candle["low"])),
+                            close=Decimal(str(latest_candle["close"])),
+                            tick_volume=int(latest_candle.get("tick_volume", 10)),
+                            spread_points=20,
+                        )
+                        self.strategy.update_bar(bar)
+                        self._last_completed_bar_time = candle_time
+                    except Exception:
+                        pass
 
         # 2. Evaluate real-time market quote through Strategy -> Risk Gate -> Paper Executor
         result = self.host.process(

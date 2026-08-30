@@ -65,7 +65,16 @@ def _terminal_clock(value: Any, path: str) -> str:
 
 
 def _integer(value: Any, path: str, *, minimum: int | None = None) -> int:
-    if isinstance(value, bool) or not isinstance(value, int):
+    if isinstance(value, bool):
+        raise ObservationValidationError(f"{path} must be an integer")
+    if isinstance(value, str):
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            raise ObservationValidationError(f"{path} must be an integer")
+    elif isinstance(value, float) and value.is_integer():
+        value = int(value)
+    elif not isinstance(value, int):
         raise ObservationValidationError(f"{path} must be an integer")
     if minimum is not None and value < minimum:
         raise ObservationValidationError(f"{path} must be at least {minimum}")
@@ -73,7 +82,14 @@ def _integer(value: Any, path: str, *, minimum: int | None = None) -> int:
 
 
 def _number(value: Any, path: str, *, minimum: float | None = None) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool):
+        raise ObservationValidationError(f"{path} must be a number")
+    if isinstance(value, str):
+        try:
+            value = float(value)
+        except (ValueError, TypeError):
+            raise ObservationValidationError(f"{path} must be a number")
+    elif not isinstance(value, (int, float)):
         raise ObservationValidationError(f"{path} must be a number")
     number = float(value)
     if not math.isfinite(number):
@@ -84,6 +100,11 @@ def _number(value: Any, path: str, *, minimum: float | None = None) -> float:
 
 
 def _boolean(value: Any, path: str) -> bool:
+    if isinstance(value, str):
+        if value.lower() in {"true", "1"}:
+            return True
+        if value.lower() in {"false", "0"}:
+            return False
     if not isinstance(value, bool):
         raise ObservationValidationError(f"{path} must be a boolean")
     return value

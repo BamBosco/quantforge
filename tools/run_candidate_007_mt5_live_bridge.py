@@ -80,9 +80,13 @@ def main() -> None:
 
     token = args.token
     norm_sym = args.symbol.strip("#._/ ").replace("/", "").upper()
+    is_crypto = "BTC" in norm_sym
 
-    # Load Hybrid Dynamic Scalper Settings
-    settings = Candidate007Settings.for_hybrid_dynamic_scalper(norm_sym)
+    # Load Dynamic Micro-Scalper Settings (100–250 Daily Trades Capacity)
+    if is_crypto:
+        settings = Candidate007Settings.for_btcusd_scalper()
+    else:
+        settings = Candidate007Settings.for_gold_active_scalper()
 
     server, strategy, portfolio, journal, execution_queue = create_candidate_007_live_bridge(
         host=args.host,
@@ -96,18 +100,17 @@ def main() -> None:
         on_cycle=on_cycle_callback,
     )
 
-    is_crypto = "BTC" in norm_sym
-    print("=" * 75)
-    print("🛰️  QUANTFORGE PATIENT TREND STRATEGY ENGINE — CANDIDATE 007")
-    print("=" * 75)
-    print(f"Target Asset       : {args.symbol} {'(Weekend Forward-Testing Mode)' if is_crypto else '(Live Gold Strategy)'}")
-    print(f"Strategy Preset    : 🎯 Patient Trend Breakout (20-Bar Donchian, 50 EMA, 14 ATR, 2R Target)")
-    print(f"Daily Trade Cap    : 1 High-Conviction Trade / Day (Strict Capital Protection)")
-    print(f"Auto-Execution     : {'🟢 ENABLED (Native MT5 OrderSend)' if args.auto_exec else '🟡 PAPER ONLY'}")
-    print(f"Bridge URL         : http://{args.host}:{args.port}/v1/mt5/snapshots")
-    print(f"Durable Journal    : {args.journal}")
-    print("=" * 75)
-    print(f"Scanning {args.symbol} for institutional trend breakout setups...\n")
+    print("=" * 75, flush=True)
+    print("🛰️  QUANTFORGE HIGH-VELOCITY SMC SCALPER ENGINE — CANDIDATE 007", flush=True)
+    print("=" * 75, flush=True)
+    print(f"Target Asset       : {args.symbol} {'(Weekend Forward-Testing Mode)' if is_crypto else '(Live Gold Strategy)'}", flush=True)
+    print(f"Strategy Preset    : 🎯 High-Frequency SMC Scalper (Donchian, 20 EMA, 10 ATR, 1.5R Target)", flush=True)
+    print(f"Daily Trade Cap    : Up to 250 High-Velocity Scalps / Day", flush=True)
+    print(f"Auto-Execution     : {'🟢 ENABLED (Native MT5 OrderSend)' if args.auto_exec else '🟡 PAPER ONLY'}", flush=True)
+    print(f"Bridge URL         : http://{args.host}:{args.port}/v1/mt5/snapshots", flush=True)
+    print(f"Durable Journal    : {args.journal}", flush=True)
+    print("=" * 75, flush=True)
+    print(f"Scanning {args.symbol} for institutional SMC breakout setups...\n", flush=True)
 
     try:
         server.serve_forever()

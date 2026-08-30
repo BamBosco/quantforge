@@ -240,11 +240,11 @@ def _handler_for(
 ) -> type[BaseHTTPRequestHandler]:
     class BridgeHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
-            if self.path == "/healthz":
+            if self.path in {"/healthz", "/health", "/status"}:
                 self._reply(HTTPStatus.OK, {"status": "ok", "mode": "execution_bridge"})
                 return
 
-            if self.path == "/v1/mt5/latest":
+            if self.path in {"/v1/mt5/latest", "/v1/mt5/latest/", "/latest"}:
                 if not self._authorized():
                     self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
                     return
@@ -255,7 +255,7 @@ def _handler_for(
                 self._reply(HTTPStatus.OK, observation.to_public_payload())
                 return
 
-            if self.path == "/v1/mt5/orders/pending":
+            if self.path in {"/v1/mt5/orders/pending", "/v1/mt5/orders/pending/"}:
                 if not self._authorized():
                     self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
                     return
@@ -273,14 +273,14 @@ def _handler_for(
                 self._reply(HTTPStatus.UNAUTHORIZED, {"error": "unauthorized"})
                 return
 
-            if self.path == "/v1/mt5/reset":
+            if self.path in {"/v1/mt5/reset", "/v1/mt5/reset/", "/reset"}:
                 store.reset_state()
                 if execution_queue is not None:
                     execution_queue.clear()
                 self._reply(HTTPStatus.OK, {"status": "reset_successful"})
                 return
 
-            if self.path == "/v1/mt5/snapshots":
+            if self.path in {"/v1/mt5/snapshots", "/v1/mt5/snapshots/", "/", "/snapshots"}:
                 try:
                     content_length = int(self.headers.get("Content-Length", ""))
                     if content_length <= 0 or content_length > _MAX_REQUEST_BYTES:

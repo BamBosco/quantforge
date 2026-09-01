@@ -1,107 +1,87 @@
 //+------------------------------------------------------------------+
-//|                 QuantForge_Crabel_Executor_v8.mq5               |
+//|              QuantForge_Crabel_Executor_v8_1.mq5                |
 //|                                                                  |
-//| QuantForge Opening Range Momentum Engine                         |
-//| London + New York | 15m Opening Range | EMA50 | ATR Momentum    |
-//| Structural Stop | 3.5R Target | Risk-Controlled Execution       |
+//| QuantForge Opening Range Momentum Executor                       |
+//| London + New York | 15m OR | ATR Momentum | M15 EMA             |
+//| Structural SL | 3.5R TP | Risk-Controlled Execution             |
+//|                                                                  |
+//| v8.1: Diagnostic / tester-safe re-engineering                    |
 //+------------------------------------------------------------------+
 #property copyright "QuantForge Institutional Systems"
 #property link      "https://github.com/quantforge"
-#property version   "8.00"
-#property description "QuantForge Opening Range Momentum Executor v8.0"
+#property version   "8.10"
+#property description "QuantForge Opening Range Momentum Executor v8.1"
 #property strict
 
 #include <Trade/Trade.mqh>
 
 //====================================================================
-// CONFIGURATION
+// INPUTS
 //====================================================================
 
 input group "=== Identity ==="
 input ulong   InpMagicNumber              = 9909;
-input string  InpStrategyName             = "QF_OR_Momentum_v8";
+input string  InpStrategyName             = "QF_OR_Momentum_v8_1";
 
-//--------------------------------------------------------------------
-// SESSION
-//--------------------------------------------------------------------
-input group "=== UTC Session Engine ==="
+input group "=== Time / Sessions ==="
+// In Strategy Tester, use 0 unless you deliberately want to
+// translate the simulated broker clock by another offset.
+// Live: set this to the broker server's UTC offset (e.g. 2 or 3 for Exness).
+input int     InpBrokerUtcOffsetHours     = 0;
 
-// IMPORTANT:
-// TimeCurrent() is broker/server time.
-// Set this to the broker server's UTC offset.
-// Example:
-// UTC+2 broker -> 2
-// UTC+3 broker -> 3
-// UTC-5 broker -> -5
-input int     InpBrokerUtcOffsetHours     = 2;
-
-// London
 input int     InpLondonStartHour          = 7;
 input int     InpLondonStartMinute        = 0;
 input int     InpLondonRangeMinutes       = 15;
 
-// New York
 input int     InpNYStartHour              = 13;
 input int     InpNYStartMinute            = 0;
 input int     InpNYRangeMinutes           = 15;
 
-//--------------------------------------------------------------------
-// STRATEGY
-//--------------------------------------------------------------------
 input group "=== Strategy ==="
-
 input int     InpAtrPeriod                = 14;
 input int     InpEmaPeriod                = 50;
 input double  InpMinDisplacementATR       = 0.50;
 input double  InpRiskRewardRatio          = 3.50;
 
-//--------------------------------------------------------------------
-// RISK
-//--------------------------------------------------------------------
 input group "=== Risk Engine ==="
-
-// 1% equity risk per trade
 input double  InpRiskPerTradePercent      = 1.00;
-
-// Hard daily loss lock
 input double  InpMaxDailyDrawdownPercent  = 3.00;
-
-// Hard peak-to-equity drawdown lock
 input double  InpMaxTotalDrawdownPercent  = 6.00;
-
-// Maximum total open risk for this EA
 input double  InpMaxOpenRiskPercent       = 3.00;
-
-// Optional maximum lot ceiling
 input double  InpMaxLotSize               = 0.30;
 
-// Fixed lot mode is useful for diagnostic testing.
-// When false, risk engine determines volume.
+// Fixed lot is intended for controlled signal testing & micro accounts.
 input bool    InpUseFixedLot              = false;
 input double  InpFixedLotSize             = 0.01;
 
-// Reject structural stops outside these distances.
-// These are price distances, not USD.
+// 0 = disabled. If enabled, reject structural stops outside bounds.
+// These are POINTS, not dollars.
 input double  InpMinStopDistancePoints    = 0.0;
 input double  InpMaxStopDistancePoints    = 0.0;
 
-//--------------------------------------------------------------------
-// EXECUTION
-//--------------------------------------------------------------------
 input group "=== Execution ==="
-
 input int     InpDeviationPoints          = 30;
 input double  InpMaxSpreadPoints          = 0.0;
-
-// If true, a kill switch will attempt to close this EA's positions.
 input bool    InpClosePositionsOnKill     = false;
 
-//--------------------------------------------------------------------
-// STATE
-//--------------------------------------------------------------------
-input group "=== Persistent State ==="
+input group "=== Diagnostics / Testing ==="
+input bool    InpDiagnosticMode           = true;
 
-input bool    InpPersistState             = true;
+// If false, real orders are sent to the broker/tester.
+// Set to true only if you want to inspect signals without opening trades.
+input bool    InpSignalOnly               = false;
+
+// Allows fixed 0.01 testing on small accounts by bypassing the
+// monetary-risk gate. ONLY permitted in Strategy Tester.
+input bool    InpDiagnosticBypassRisk     = true;
+
+// Print one diagnostic summary per processed session.
+input bool    InpVerboseDiagnostics       = true;
+
+input group "=== Persistent State ==="
+// Default false prevents terminal Global Variables from contaminating
+// independent Strategy Tester runs. Enable for live/restart recovery.
+input bool    InpPersistState             = false;
 
 //====================================================================
 // GLOBALS
@@ -114,8 +94,6 @@ int h_ema = INVALID_HANDLE;
 
 string g_prefix = "";
 
-bool g_kill_switch = false;
-
 datetime g_utc_day_start = 0;
 
 double g_day_start_equity = 0.0;
@@ -124,8 +102,10 @@ double g_peak_equity      = 0.0;
 bool g_london_processed = false;
 bool g_ny_processed     = false;
 
+bool g_kill_switch = false;
+
 //====================================================================
-// ENUMS / STRUCTURES
+// ENUMS / STRUCTS
 //====================================================================
 
 enum SignalDirection
@@ -175,6 +155,7 @@ struct RiskDecision
    double risk_money;
 
    double stop_distance;
+   double loss_at_fixed_volume;
    double loss_per_lot;
 
    double volume;
@@ -189,7 +170,7 @@ struct RiskDecision
 };
 
 //====================================================================
-// UTILITY
+// BASIC UTILITIES
 //====================================================================
 
 string GVName(string suffix)
@@ -198,15 +179,31 @@ string GVName(string suffix)
 }
 
 //--------------------------------------------------------------------
-// Normalize price
-//--------------------------------------------------------------------
 double NormalizePrice(double price)
 {
    return(NormalizeDouble(price, _Digits));
 }
 
 //--------------------------------------------------------------------
-// Normalize volume DOWN to broker step
+int VolumeDigits()
+{
+   double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+
+   if(step >= 1.0)
+      return(0);
+
+   if(step >= 0.1)
+      return(1);
+
+   if(step >= 0.01)
+      return(2);
+
+   if(step >= 0.001)
+      return(3);
+
+   return(4);
+}
+
 //--------------------------------------------------------------------
 double NormalizeVolumeDown(double volume)
 {
@@ -214,45 +211,69 @@ double NormalizeVolumeDown(double volume)
    double max_volume = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
    double step       = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
 
-   if(step <= 0.0)
+   if(step <= 0.0 || max_volume <= 0.0)
       return(0.0);
 
    volume = MathMin(volume, max_volume);
 
-   double normalized = MathFloor(volume / step + 1e-9) * step;
+   double normalized =
+      MathFloor((volume + 1e-12) / step) * step;
 
    if(normalized < min_volume)
       return(0.0);
 
-   int digits = 2;
-
-   if(step < 0.01)
-      digits = 4;
-
-   if(step < 0.001)
-      digits = 5;
-
-   return(NormalizeDouble(normalized, digits));
+   return(
+      NormalizeDouble(
+         normalized,
+         VolumeDigits()
+      )
+   );
 }
 
 //--------------------------------------------------------------------
-// Get current UTC time using configured broker offset
+double NormalizeVolumeNearest(double volume)
+{
+   double min_volume = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+   double max_volume = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
+   double step       = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
+
+   if(step <= 0.0 || max_volume <= 0.0)
+      return(0.0);
+
+   volume = MathMax(min_volume, MathMin(volume, max_volume));
+
+   double normalized =
+      MathFloor((volume + step * 0.5) / step) * step;
+
+   normalized =
+      MathMax(min_volume, MathMin(normalized, max_volume));
+
+   return(
+      NormalizeDouble(
+         normalized,
+         VolumeDigits()
+      )
+   );
+}
+
 //--------------------------------------------------------------------
 datetime GetUtcNow()
 {
    datetime server_time = TimeCurrent();
 
-   // Server time = UTC + offset
-   return(server_time - InpBrokerUtcOffsetHours * 3600);
+   return(
+      server_time -
+      InpBrokerUtcOffsetHours * 3600
+   );
 }
 
 //--------------------------------------------------------------------
-// Start of UTC calendar day
-//--------------------------------------------------------------------
-datetime GetUtcDayStart(datetime utc_time)
+datetime GetUtcDayStart(datetime t)
 {
    MqlDateTime dt;
-   TimeToStruct(utc_time, dt);
+
+   if(!TimeToStruct(t, dt))
+      return(0);
 
    dt.hour = 0;
    dt.min  = 0;
@@ -262,24 +283,21 @@ datetime GetUtcDayStart(datetime utc_time)
 }
 
 //--------------------------------------------------------------------
-// Create session timestamp on a UTC day
-//--------------------------------------------------------------------
 datetime BuildSessionTime(
    datetime day_start,
    int hour,
    int minute
 )
 {
-   return(day_start + hour * 3600 + minute * 60);
+   return(
+      day_start +
+      hour * 3600 +
+      minute * 60
+   );
 }
 
 //====================================================================
-// FORWARD DECLARATIONS
-//====================================================================
-void CloseAllEAPositions();
-
-//====================================================================
-// PERSISTENT STATE
+// STATE
 //====================================================================
 
 void SaveState()
@@ -287,9 +305,20 @@ void SaveState()
    if(!InpPersistState)
       return;
 
-   GlobalVariableSet(GVName("DAY"),        (double)g_utc_day_start);
-   GlobalVariableSet(GVName("DAY_EQUITY"), g_day_start_equity);
-   GlobalVariableSet(GVName("PEAK"),       g_peak_equity);
+   GlobalVariableSet(
+      GVName("DAY"),
+      (double)g_utc_day_start
+   );
+
+   GlobalVariableSet(
+      GVName("DAY_EQUITY"),
+      g_day_start_equity
+   );
+
+   GlobalVariableSet(
+      GVName("PEAK"),
+      g_peak_equity
+   );
 
    GlobalVariableSet(
       GVName("LONDON"),
@@ -308,78 +337,90 @@ void SaveState()
 }
 
 //--------------------------------------------------------------------
+void InitializeFreshState()
+{
+   datetime now = GetUtcNow();
+
+   g_utc_day_start = GetUtcDayStart(now);
+
+   double equity =
+      AccountInfoDouble(ACCOUNT_EQUITY);
+
+   if(equity <= 0.0)
+      equity = AccountInfoDouble(ACCOUNT_BALANCE);
+
+   g_day_start_equity = equity;
+   g_peak_equity      = equity;
+
+   g_london_processed = false;
+   g_ny_processed     = false;
+   g_kill_switch      = false;
+}
+
+//--------------------------------------------------------------------
 void LoadState()
 {
-   datetime today = GetUtcDayStart(GetUtcNow());
+   InitializeFreshState();
 
    if(!InpPersistState)
-   {
-      g_utc_day_start     = today;
-      g_day_start_equity  = AccountInfoDouble(ACCOUNT_EQUITY);
-      g_peak_equity       = g_day_start_equity;
-      g_london_processed  = false;
-      g_ny_processed      = false;
-      g_kill_switch       = false;
       return;
-   }
 
    if(!GlobalVariableCheck(GVName("DAY")))
    {
-      g_utc_day_start = today;
-      g_day_start_equity = AccountInfoDouble(ACCOUNT_EQUITY);
-      g_peak_equity = g_day_start_equity;
-
-      g_london_processed = false;
-      g_ny_processed = false;
-      g_kill_switch = false;
-
       SaveState();
       return;
    }
 
    datetime stored_day =
-      (datetime)GlobalVariableGet(GVName("DAY"));
+      (datetime)GlobalVariableGet(
+         GVName("DAY")
+      );
 
-   if(stored_day != today)
+   if(stored_day != g_utc_day_start)
    {
-      g_utc_day_start = today;
-
       g_day_start_equity =
-         AccountInfoDouble(ACCOUNT_EQUITY);
+         AccountInfoDouble(
+            ACCOUNT_EQUITY
+         );
 
-      g_london_processed = false;
-      g_ny_processed = false;
-
-      // Do not reset peak equity at the beginning of a day.
       if(GlobalVariableCheck(GVName("PEAK")))
          g_peak_equity =
-            GlobalVariableGet(GVName("PEAK"));
-      else
-         g_peak_equity = g_day_start_equity;
+            GlobalVariableGet(
+               GVName("PEAK")
+            );
 
-      // Daily kill switch resets on a new UTC day.
-      g_kill_switch = false;
+      g_london_processed = false;
+      g_ny_processed     = false;
+      g_kill_switch      = false;
 
       SaveState();
       return;
    }
 
-   g_utc_day_start = stored_day;
-
    g_day_start_equity =
-      GlobalVariableGet(GVName("DAY_EQUITY"));
+      GlobalVariableGet(
+         GVName("DAY_EQUITY")
+      );
 
    g_peak_equity =
-      GlobalVariableGet(GVName("PEAK"));
+      GlobalVariableGet(
+         GVName("PEAK")
+      );
 
    g_london_processed =
-      GlobalVariableGet(GVName("LONDON")) > 0.5;
+      GlobalVariableGet(
+         GVName("LONDON")
+      ) > 0.5;
 
    g_ny_processed =
-      GlobalVariableGet(GVName("NY")) > 0.5;
+      GlobalVariableGet(
+         GVName("NY")
+      ) > 0.5;
 
    g_kill_switch =
-      GlobalVariableGet(GVName("KILL")) > 0.5;
+      GlobalVariableGet(
+         GVName("KILL")
+      ) > 0.5;
 }
 
 //====================================================================
@@ -391,12 +432,14 @@ double GetDailyDrawdownPercent()
    if(g_day_start_equity <= 0.0)
       return(0.0);
 
-   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double equity =
+      AccountInfoDouble(
+         ACCOUNT_EQUITY
+      );
 
    double dd =
-      (g_day_start_equity - equity)
-      / g_day_start_equity
-      * 100.0;
+      (g_day_start_equity - equity) /
+      g_day_start_equity * 100.0;
 
    return(MathMax(0.0, dd));
 }
@@ -407,25 +450,56 @@ double GetTotalDrawdownPercent()
    if(g_peak_equity <= 0.0)
       return(0.0);
 
-   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double equity =
+      AccountInfoDouble(
+         ACCOUNT_EQUITY
+      );
 
    double dd =
-      (g_peak_equity - equity)
-      / g_peak_equity
-      * 100.0;
+      (g_peak_equity - equity) /
+      g_peak_equity * 100.0;
 
    return(MathMax(0.0, dd));
 }
 
 //--------------------------------------------------------------------
+void CloseAllEAPositions()
+{
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   {
+      ulong ticket =
+         PositionGetTicket(i);
+
+      if(ticket == 0)
+         continue;
+
+      if((ulong)PositionGetInteger(POSITION_MAGIC)
+            != InpMagicNumber)
+         continue;
+
+      if(!m_trade.PositionClose(ticket))
+      {
+         PrintFormat(
+            "QF KILL: close failed ticket=%I64u ret=%u %s",
+            ticket,
+            m_trade.ResultRetcode(),
+            m_trade.ResultRetcodeDescription()
+         );
+      }
+   }
+}
+
+//--------------------------------------------------------------------
 void UpdateRiskState()
 {
-   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   double equity =
+      AccountInfoDouble(
+         ACCOUNT_EQUITY
+      );
 
    if(equity <= 0.0)
       return;
 
-   // Update peak equity.
    if(g_peak_equity <= 0.0 ||
       equity > g_peak_equity)
    {
@@ -433,34 +507,33 @@ void UpdateRiskState()
       SaveState();
    }
 
-   double daily_dd = GetDailyDrawdownPercent();
-   double total_dd = GetTotalDrawdownPercent();
+   double daily_dd =
+      GetDailyDrawdownPercent();
+
+   double total_dd =
+      GetTotalDrawdownPercent();
 
    if(daily_dd >= InpMaxDailyDrawdownPercent)
    {
-      if(!g_kill_switch)
-      {
-         PrintFormat(
-            "QF RISK: DAILY KILL SWITCH. DD=%.2f%%",
-            daily_dd
-         );
-      }
-
       g_kill_switch = true;
+
+      PrintFormat(
+         "QF RISK: DAILY KILL SWITCH active. DD=%.2f%%",
+         daily_dd
+      );
+
       SaveState();
    }
 
    if(total_dd >= InpMaxTotalDrawdownPercent)
    {
-      if(!g_kill_switch)
-      {
-         PrintFormat(
-            "QF RISK: TOTAL KILL SWITCH. DD=%.2f%%",
-            total_dd
-         );
-      }
-
       g_kill_switch = true;
+
+      PrintFormat(
+         "QF RISK: TOTAL KILL SWITCH active. DD=%.2f%%",
+         total_dd
+      );
+
       SaveState();
    }
 
@@ -472,7 +545,7 @@ void UpdateRiskState()
 }
 
 //====================================================================
-// POSITION / EXPOSURE
+// POSITION / OPEN RISK
 //====================================================================
 
 int CountEAPositions()
@@ -481,13 +554,14 @@ int CountEAPositions()
 
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
-      ulong ticket = PositionGetTicket(i);
+      ulong ticket =
+         PositionGetTicket(i);
 
       if(ticket == 0)
          continue;
 
-      if(PositionGetInteger(POSITION_MAGIC)
-            != (long)InpMagicNumber)
+      if((ulong)PositionGetInteger(POSITION_MAGIC)
+            != InpMagicNumber)
          continue;
 
       count++;
@@ -497,40 +571,49 @@ int CountEAPositions()
 }
 
 //--------------------------------------------------------------------
-// Calculate monetary risk of one existing position
-//--------------------------------------------------------------------
 double CalculatePositionRisk(ulong ticket)
 {
    if(!PositionSelectByTicket(ticket))
       return(0.0);
 
    string symbol =
-      PositionGetString(POSITION_SYMBOL);
+      PositionGetString(
+         POSITION_SYMBOL
+      );
 
-   ENUM_POSITION_TYPE type =
+   ENUM_POSITION_TYPE position_type =
       (ENUM_POSITION_TYPE)
-      PositionGetInteger(POSITION_TYPE);
+      PositionGetInteger(
+         POSITION_TYPE
+      );
 
    double volume =
-      PositionGetDouble(POSITION_VOLUME);
+      PositionGetDouble(
+         POSITION_VOLUME
+      );
 
    double open_price =
-      PositionGetDouble(POSITION_PRICE_OPEN);
+      PositionGetDouble(
+         POSITION_PRICE_OPEN
+      );
 
    double sl =
-      PositionGetDouble(POSITION_SL);
+      PositionGetDouble(
+         POSITION_SL
+      );
 
-   if(sl <= 0.0)
+   if(volume <= 0.0 ||
+      sl <= 0.0)
       return(0.0);
-
-   double profit = 0.0;
 
    ENUM_ORDER_TYPE order_type;
 
-   if(type == POSITION_TYPE_BUY)
+   if(position_type == POSITION_TYPE_BUY)
       order_type = ORDER_TYPE_BUY;
    else
       order_type = ORDER_TYPE_SELL;
+
+   double profit = 0.0;
 
    if(!OrderCalcProfit(
          order_type,
@@ -547,21 +630,20 @@ double CalculatePositionRisk(ulong ticket)
 }
 
 //--------------------------------------------------------------------
-// Total open risk for this EA
-//--------------------------------------------------------------------
 double CalculateOpenRiskMoney()
 {
    double total = 0.0;
 
    for(int i = PositionsTotal() - 1; i >= 0; i--)
    {
-      ulong ticket = PositionGetTicket(i);
+      ulong ticket =
+         PositionGetTicket(i);
 
       if(ticket == 0)
          continue;
 
-      if(PositionGetInteger(POSITION_MAGIC)
-            != (long)InpMagicNumber)
+      if((ulong)PositionGetInteger(POSITION_MAGIC)
+            != InpMagicNumber)
          continue;
 
       total += CalculatePositionRisk(ticket);
@@ -580,16 +662,20 @@ bool GetATR(double &atr)
 
    ArraySetAsSeries(buffer, true);
 
-   // Shift 1 = last completed M1 candle.
-   if(CopyBuffer(h_atr, 0, 1, 1, buffer) != 1)
+   if(CopyBuffer(
+         h_atr,
+         0,
+         1,
+         1,
+         buffer
+      ) != 1)
+   {
       return(false);
+   }
 
    atr = buffer[0];
 
-   if(atr <= 0.0)
-      return(false);
-
-   return(true);
+   return(atr > 0.0);
 }
 
 //--------------------------------------------------------------------
@@ -599,16 +685,20 @@ bool GetEMA(double &ema)
 
    ArraySetAsSeries(buffer, true);
 
-   // Shift 1 = last completed M15 candle.
-   if(CopyBuffer(h_ema, 0, 1, 1, buffer) != 1)
+   if(CopyBuffer(
+         h_ema,
+         0,
+         1,
+         1,
+         buffer
+      ) != 1)
+   {
       return(false);
+   }
 
    ema = buffer[0];
 
-   if(ema <= 0.0)
-      return(false);
-
-   return(true);
+   return(ema > 0.0);
 }
 
 //====================================================================
@@ -616,47 +706,78 @@ bool GetEMA(double &ema)
 //====================================================================
 
 bool BuildOpeningRange(
-   datetime start,
+   datetime utc_start,
    int minutes,
    OpeningRange &range
 )
 {
    range.valid = false;
-   range.start = start;
-   range.end   = start + minutes * 60;
+   range.start = utc_start;
+   range.end =
+      utc_start +
+      minutes * 60;
 
    if(minutes <= 0)
       return(false);
 
-   // The range must be completely closed.
-   datetime utc_now = GetUtcNow();
+   datetime utc_now =
+      GetUtcNow();
 
    if(utc_now < range.end)
       return(false);
 
-   // Convert UTC timestamps to server timestamps.
    datetime server_start =
-      start + InpBrokerUtcOffsetHours * 3600;
+      utc_start +
+      InpBrokerUtcOffsetHours * 3600;
+
+   datetime server_end =
+      range.end +
+      InpBrokerUtcOffsetHours * 3600;
 
    MqlRates rates[];
 
-   ArraySetAsSeries(rates, false);
+   ArraySetAsSeries(
+      rates,
+      false
+   );
 
    int copied =
       CopyRates(
          _Symbol,
          PERIOD_M1,
          server_start,
-         minutes,
+         server_end - 1,
          rates
       );
+
+   if(copied < 0)
+   {
+      PrintFormat(
+         "QF DATA: CopyRates error=%d",
+         GetLastError()
+      );
+
+      return(false);
+   }
 
    if(copied != minutes)
    {
       PrintFormat(
-         "QF DATA: Opening range unavailable. Expected=%d Got=%d",
+         "QF DATA: OR INVALID. Session=%s ExpectedBars=%d Got=%d Start=%s End=%s",
+         TimeToString(
+            utc_start,
+            TIME_DATE | TIME_MINUTES
+         ),
          minutes,
-         copied
+         copied,
+         TimeToString(
+            utc_start,
+            TIME_DATE | TIME_MINUTES
+         ),
+         TimeToString(
+            range.end,
+            TIME_DATE | TIME_MINUTES
+         )
       );
 
       return(false);
@@ -665,7 +786,7 @@ bool BuildOpeningRange(
    range.open  = rates[0].open;
    range.high  = rates[0].high;
    range.low   = rates[0].low;
-   range.close = rates[minutes - 1].close;
+   range.close = rates[copied - 1].close;
    range.bars  = copied;
 
    for(int i = 1; i < copied; i++)
@@ -692,12 +813,12 @@ bool GetReadySession(
    int &range_minutes
 )
 {
-   datetime now = GetUtcNow();
+   datetime now =
+      GetUtcNow();
 
    datetime day =
       GetUtcDayStart(now);
 
-   // London
    datetime london_start =
       BuildSessionTime(
          day,
@@ -712,14 +833,13 @@ bool GetReadySession(
    if(!g_london_processed &&
       now >= london_end)
    {
-      session_name = "LONDON";
+      session_name  = "LONDON";
       session_start = london_start;
       range_minutes = InpLondonRangeMinutes;
 
       return(true);
    }
 
-   // New York
    datetime ny_start =
       BuildSessionTime(
          day,
@@ -734,7 +854,7 @@ bool GetReadySession(
    if(!g_ny_processed &&
       now >= ny_end)
    {
-      session_name = "NEW_YORK";
+      session_name  = "NEW_YORK";
       session_start = ny_start;
       range_minutes = InpNYRangeMinutes;
 
@@ -757,15 +877,29 @@ TradeSignal EvaluateSignal(
 {
    TradeSignal signal;
 
-   signal.valid = false;
-   signal.direction = SIGNAL_NONE;
-   signal.entry = 0.0;
-   signal.stop = 0.0;
-   signal.target = 0.0;
-   signal.atr = atr;
-   signal.ema = ema;
-   signal.displacement = range.close - range.open;
-   signal.session = session;
+   signal.valid =
+      false;
+
+   signal.direction =
+      SIGNAL_NONE;
+
+   signal.entry   = 0.0;
+   signal.stop    = 0.0;
+   signal.target  = 0.0;
+
+   signal.atr =
+      atr;
+
+   signal.ema =
+      ema;
+
+   signal.displacement =
+      range.close -
+      range.open;
+
+   signal.session =
+      session;
+
    signal.reason = "";
 
    double ask =
@@ -780,86 +914,153 @@ TradeSignal EvaluateSignal(
          SYMBOL_BID
       );
 
-   if(ask <= 0.0 || bid <= 0.0)
+   if(ask <= 0.0 ||
+      bid <= 0.0)
    {
-      signal.reason = "Invalid market price";
+      signal.reason =
+         "Invalid bid/ask";
+
       return(signal);
    }
 
-   double minimum_displacement =
-      InpMinDisplacementATR * atr;
+   double required =
+      InpMinDisplacementATR *
+      atr;
 
-   // ---------------------------------------------------------------
+   //-----------------------------------------------------------------
    // BUY
-   // ---------------------------------------------------------------
-   if(signal.displacement > 0.0 &&
-      signal.displacement >= minimum_displacement &&
-      range.close > ema)
+   //-----------------------------------------------------------------
+   if(signal.displacement > 0.0)
    {
-      signal.direction = SIGNAL_BUY;
-      signal.entry = ask;
-      signal.stop = range.low;
-
-      double stop_distance =
-         signal.entry - signal.stop;
-
-      if(stop_distance <= 0.0)
+      if(signal.displacement < required)
       {
-         signal.reason = "Invalid BUY structural stop";
+         signal.reason =
+            StringFormat(
+               "BUY displacement too small: %.5f < %.5f",
+               signal.displacement,
+               required
+            );
+
+         return(signal);
+      }
+
+      if(range.close <= ema)
+      {
+         signal.reason =
+            StringFormat(
+               "BUY rejected by EMA: close %.5f <= EMA %.5f",
+               range.close,
+               ema
+            );
+
+         return(signal);
+      }
+
+      signal.direction =
+         SIGNAL_BUY;
+
+      signal.entry =
+         ask;
+
+      signal.stop =
+         range.low;
+
+      double distance =
+         signal.entry -
+         signal.stop;
+
+      if(distance <= 0.0)
+      {
+         signal.reason =
+            "BUY structural SL >= entry";
+
          return(signal);
       }
 
       signal.target =
          signal.entry +
-         stop_distance *
+         distance *
          InpRiskRewardRatio;
 
       signal.valid = true;
-      signal.reason = "BUY momentum + EMA confirmation";
+
+      signal.reason =
+         "BUY: displacement + EMA";
 
       return(signal);
    }
 
-   // ---------------------------------------------------------------
+   //-----------------------------------------------------------------
    // SELL
-   // ---------------------------------------------------------------
-   if(signal.displacement < 0.0 &&
-      MathAbs(signal.displacement) >=
-         minimum_displacement &&
-      range.close < ema)
+   //-----------------------------------------------------------------
+   if(signal.displacement < 0.0)
    {
-      signal.direction = SIGNAL_SELL;
-      signal.entry = bid;
-      signal.stop = range.high;
-
-      double stop_distance =
-         signal.stop - signal.entry;
-
-      if(stop_distance <= 0.0)
+      if(MathAbs(signal.displacement) < required)
       {
-         signal.reason = "Invalid SELL structural stop";
+         signal.reason =
+            StringFormat(
+               "SELL displacement too small: %.5f < %.5f",
+               MathAbs(signal.displacement),
+               required
+            );
+
+         return(signal);
+      }
+
+      if(range.close >= ema)
+      {
+         signal.reason =
+            StringFormat(
+               "SELL rejected by EMA: close %.5f >= EMA %.5f",
+               range.close,
+               ema
+            );
+
+         return(signal);
+      }
+
+      signal.direction =
+         SIGNAL_SELL;
+
+      signal.entry =
+         bid;
+
+      signal.stop =
+         range.high;
+
+      double distance =
+         signal.stop -
+         signal.entry;
+
+      if(distance <= 0.0)
+      {
+         signal.reason =
+            "SELL structural SL <= entry";
+
          return(signal);
       }
 
       signal.target =
          signal.entry -
-         stop_distance *
+         distance *
          InpRiskRewardRatio;
 
       signal.valid = true;
-      signal.reason = "SELL momentum + EMA confirmation";
+
+      signal.reason =
+         "SELL: displacement + EMA";
 
       return(signal);
    }
 
    signal.reason =
-      "No qualifying momentum/EMA signal";
+      "No directional displacement";
 
    return(signal);
 }
 
 //====================================================================
-// STOP VALIDATION
+// BROKER / STOP VALIDATION
 //====================================================================
 
 bool ValidateStops(
@@ -873,39 +1074,53 @@ bool ValidateStops(
          SYMBOL_POINT
       );
 
-   double stop_level_points =
+   if(point <= 0.0)
+   {
+      reason =
+         "Invalid SYMBOL_POINT";
+
+      return(false);
+   }
+
+   double broker_stop_points =
       (double)SymbolInfoInteger(
          _Symbol,
          SYMBOL_TRADE_STOPS_LEVEL
       );
 
-   double freeze_level_points =
+   double broker_freeze_points =
       (double)SymbolInfoInteger(
          _Symbol,
          SYMBOL_TRADE_FREEZE_LEVEL
       );
 
-   double minimum_broker_distance =
+   double broker_min_distance =
       MathMax(
-         stop_level_points,
-         freeze_level_points
+         broker_stop_points,
+         broker_freeze_points
       ) * point;
 
    double stop_distance =
-      MathAbs(signal.entry - signal.stop);
+      MathAbs(
+         signal.entry -
+         signal.stop
+      );
 
    if(stop_distance <= 0.0)
    {
-      reason = "Zero/negative stop distance";
+      reason =
+         "Invalid stop distance";
+
       return(false);
    }
 
-   if(stop_distance < minimum_broker_distance)
+   if(stop_distance < broker_min_distance)
    {
       reason =
          StringFormat(
-            "Structural SL inside broker minimum distance %.5f",
-            minimum_broker_distance
+            "Structural SL too close. Distance=%.5f BrokerMin=%.5f",
+            stop_distance,
+            broker_min_distance
          );
 
       return(false);
@@ -915,7 +1130,9 @@ bool ValidateStops(
       stop_distance / point <
          InpMinStopDistancePoints)
    {
-      reason = "Stop below configured minimum distance";
+      reason =
+         "Below configured minimum stop distance";
+
       return(false);
    }
 
@@ -923,36 +1140,46 @@ bool ValidateStops(
       stop_distance / point >
          InpMaxStopDistancePoints)
    {
-      reason = "Structural stop exceeds configured maximum distance";
+      reason =
+         "Above configured maximum stop distance";
+
       return(false);
    }
 
-   // Check TP direction.
    if(signal.direction == SIGNAL_BUY)
    {
       if(signal.stop >= signal.entry)
       {
-         reason = "BUY SL is not below entry";
+         reason =
+            "BUY stop is not below entry";
+
          return(false);
       }
 
       if(signal.target <= signal.entry)
       {
-         reason = "BUY TP is not above entry";
+         reason =
+            "BUY target is not above entry";
+
          return(false);
       }
    }
-   else if(signal.direction == SIGNAL_SELL)
+
+   if(signal.direction == SIGNAL_SELL)
    {
       if(signal.stop <= signal.entry)
       {
-         reason = "SELL SL is not above entry";
+         reason =
+            "SELL stop is not above entry";
+
          return(false);
       }
 
       if(signal.target >= signal.entry)
       {
-         reason = "SELL TP is not below entry";
+         reason =
+            "SELL target is not below entry";
+
          return(false);
       }
    }
@@ -989,18 +1216,21 @@ bool ValidateSpread(string &reason)
 
    if(point <= 0.0)
    {
-      reason = "Invalid point size";
+      reason =
+         "Invalid point size";
+
       return(false);
    }
 
    double spread_points =
       (ask - bid) / point;
 
-   if(spread_points > InpMaxSpreadPoints)
+   if(spread_points >
+      InpMaxSpreadPoints)
    {
       reason =
          StringFormat(
-            "Spread %.1f > maximum %.1f points",
+            "Spread %.1f > max %.1f points",
             spread_points,
             InpMaxSpreadPoints
          );
@@ -1012,7 +1242,7 @@ bool ValidateSpread(string &reason)
 }
 
 //====================================================================
-// POSITION SIZING
+// RISK / SIZING
 //====================================================================
 
 bool CalculateRiskVolume(
@@ -1027,7 +1257,9 @@ bool CalculateRiskVolume(
 
    if(decision.equity <= 0.0)
    {
-      decision.reason = "Invalid account equity";
+      decision.reason =
+         "Invalid equity";
+
       return(false);
    }
 
@@ -1044,62 +1276,11 @@ bool CalculateRiskVolume(
 
    if(decision.stop_distance <= 0.0)
    {
-      decision.reason = "Invalid stop distance";
+      decision.reason =
+         "Invalid stop distance";
+
       return(false);
    }
-
-   //-----------------------------------------------------------------
-   // Fixed-lot diagnostic mode
-   //-----------------------------------------------------------------
-   if(InpUseFixedLot)
-   {
-      decision.volume =
-         NormalizeVolumeDown(
-            MathMin(
-               InpFixedLotSize,
-               InpMaxLotSize
-            )
-         );
-
-      if(decision.volume <= 0.0)
-      {
-         decision.reason =
-            "Fixed lot below broker minimum";
-         return(false);
-      }
-
-      double estimated_loss = 0.0;
-
-      ENUM_ORDER_TYPE order_type;
-
-      if(signal.direction == SIGNAL_BUY)
-         order_type = ORDER_TYPE_BUY;
-      else
-         order_type = ORDER_TYPE_SELL;
-
-      if(!OrderCalcProfit(
-            order_type,
-            _Symbol,
-            decision.volume,
-            signal.entry,
-            signal.stop,
-            estimated_loss))
-      {
-         decision.reason =
-            "OrderCalcProfit failed";
-         return(false);
-      }
-
-      decision.loss_per_lot =
-         MathAbs(estimated_loss) /
-         decision.volume;
-
-      return(true);
-   }
-
-   //-----------------------------------------------------------------
-   // Risk-based volume
-   //-----------------------------------------------------------------
 
    ENUM_ORDER_TYPE order_type;
 
@@ -1108,7 +1289,60 @@ bool CalculateRiskVolume(
    else
       order_type = ORDER_TYPE_SELL;
 
-   double loss_one_lot = 0.0;
+   //-----------------------------------------------------------------
+   // FIXED LOT MODE
+   //-----------------------------------------------------------------
+   if(InpUseFixedLot)
+   {
+      double requested =
+         MathMin(
+            InpFixedLotSize,
+            InpMaxLotSize
+         );
+
+      decision.volume =
+         NormalizeVolumeNearest(
+            requested
+         );
+
+      if(decision.volume <= 0.0)
+      {
+         decision.reason =
+            "Fixed volume invalid for broker";
+
+         return(false);
+      }
+
+      double loss = 0.0;
+
+      if(!OrderCalcProfit(
+            order_type,
+            _Symbol,
+            decision.volume,
+            signal.entry,
+            signal.stop,
+            loss))
+      {
+         decision.reason =
+            "OrderCalcProfit failed for fixed volume";
+
+         return(false);
+      }
+
+      decision.loss_at_fixed_volume =
+         MathAbs(loss);
+
+      decision.loss_per_lot =
+         decision.loss_at_fixed_volume /
+         decision.volume;
+
+      return(true);
+   }
+
+   //-----------------------------------------------------------------
+   // RISK-BASED MODE
+   //-----------------------------------------------------------------
+   double one_lot_loss = 0.0;
 
    if(!OrderCalcProfit(
          order_type,
@@ -1116,29 +1350,31 @@ bool CalculateRiskVolume(
          1.0,
          signal.entry,
          signal.stop,
-         loss_one_lot))
+         one_lot_loss))
    {
       decision.reason =
-         "Unable to calculate 1-lot stop loss";
+         "OrderCalcProfit failed for 1 lot";
+
       return(false);
    }
 
-   loss_one_lot =
-      MathAbs(loss_one_lot);
+   one_lot_loss =
+      MathAbs(one_lot_loss);
 
-   if(loss_one_lot <= 0.0)
+   if(one_lot_loss <= 0.0)
    {
       decision.reason =
-         "Calculated 1-lot loss is zero";
+         "One-lot loss is zero";
+
       return(false);
    }
 
    decision.loss_per_lot =
-      loss_one_lot;
+      one_lot_loss;
 
    double raw_volume =
       decision.risk_money /
-      loss_one_lot;
+      one_lot_loss;
 
    raw_volume =
       MathMin(
@@ -1153,8 +1389,36 @@ bool CalculateRiskVolume(
 
    if(decision.volume <= 0.0)
    {
+      double broker_min =
+         SymbolInfoDouble(
+            _Symbol,
+            SYMBOL_VOLUME_MIN
+         );
+
+      double min_loss = 0.0;
+
+      if(!OrderCalcProfit(
+            order_type,
+            _Symbol,
+            broker_min,
+            signal.entry,
+            signal.stop,
+            min_loss))
+      {
+         min_loss = 0.0;
+      }
+
+      decision.loss_at_fixed_volume =
+         MathAbs(min_loss);
+
       decision.reason =
-         "Calculated volume below broker minimum";
+         StringFormat(
+            "Risk budget %.2f cannot support broker minimum %.4f lot. Minimum-lot SL loss=%.2f",
+            decision.risk_money,
+            broker_min,
+            decision.loss_at_fixed_volume
+         );
+
       return(false);
    }
 
@@ -1162,7 +1426,7 @@ bool CalculateRiskVolume(
 }
 
 //====================================================================
-// RISK ENGINE
+// RISK APPROVAL
 //====================================================================
 
 RiskDecision ApproveRisk(
@@ -1172,58 +1436,67 @@ RiskDecision ApproveRisk(
    RiskDecision decision;
 
    decision.approved = false;
+
    decision.equity = 0.0;
    decision.risk_money = 0.0;
+
    decision.stop_distance = 0.0;
+   decision.loss_at_fixed_volume = 0.0;
    decision.loss_per_lot = 0.0;
+
    decision.volume = 0.0;
+
    decision.current_open_risk = 0.0;
    decision.projected_open_risk = 0.0;
+
    decision.daily_drawdown =
       GetDailyDrawdownPercent();
+
    decision.total_drawdown =
       GetTotalDrawdownPercent();
+
    decision.reason = "";
 
    //-----------------------------------------------------------------
-   // Kill switch
+   // Hard kill switch
    //-----------------------------------------------------------------
    if(g_kill_switch)
    {
       decision.reason =
-         "Risk kill switch active";
+         "Kill switch active";
+
       return(decision);
    }
 
    //-----------------------------------------------------------------
-   // Daily DD
+   // DD limits
    //-----------------------------------------------------------------
    if(decision.daily_drawdown >=
       InpMaxDailyDrawdownPercent)
    {
       decision.reason =
-         "Daily drawdown limit reached";
+         "Daily DD limit reached";
+
       return(decision);
    }
 
-   //-----------------------------------------------------------------
-   // Total DD
-   //-----------------------------------------------------------------
    if(decision.total_drawdown >=
       InpMaxTotalDrawdownPercent)
    {
       decision.reason =
-         "Total drawdown limit reached";
+         "Total DD limit reached";
+
       return(decision);
    }
 
    //-----------------------------------------------------------------
-   // Existing position on this EA
+   // One position at a time
    //-----------------------------------------------------------------
    if(CountEAPositions() > 0)
    {
       decision.reason =
          "EA already has an open position";
+
       return(decision);
    }
 
@@ -1234,36 +1507,107 @@ RiskDecision ApproveRisk(
 
    if(!ValidateSpread(reason))
    {
-      decision.reason = reason;
+      decision.reason =
+         reason;
+
       return(decision);
    }
 
    //-----------------------------------------------------------------
-   // Structural stop validation
+   // Structural SL
    //-----------------------------------------------------------------
-   if(!ValidateStops(signal, reason))
+   if(!ValidateStops(
+         signal,
+         reason
+      ))
    {
-      decision.reason = reason;
+      decision.reason =
+         reason;
+
       return(decision);
    }
 
    //-----------------------------------------------------------------
    // Position sizing
    //-----------------------------------------------------------------
-   if(!CalculateRiskVolume(signal, decision))
+   if(!CalculateRiskVolume(
+         signal,
+         decision
+      ))
    {
       return(decision);
    }
 
    //-----------------------------------------------------------------
-   // Open-risk exposure
+   // Diagnostic bypass
+   //
+   // This is deliberately restricted to Strategy Tester.
+   //-----------------------------------------------------------------
+   bool diagnostic_bypass =
+      InpDiagnosticBypassRisk &&
+      InpDiagnosticMode &&
+      MQLInfoInteger(MQL_TESTER);
+
+   if(diagnostic_bypass)
+   {
+      decision.approved = true;
+      decision.reason =
+         "DIAGNOSTIC TESTER RISK BYPASS";
+
+      return(decision);
+   }
+
+   //-----------------------------------------------------------------
+   // Fixed-lot risk validation.
+   //-----------------------------------------------------------------
+   double actual_trade_risk = 0.0;
+
+   if(!OrderCalcProfit(
+         signal.direction == SIGNAL_BUY
+            ? ORDER_TYPE_BUY
+            : ORDER_TYPE_SELL,
+         _Symbol,
+         decision.volume,
+         signal.entry,
+         signal.stop,
+         actual_trade_risk
+      ))
+   {
+      decision.reason =
+         "OrderCalcProfit failed for actual volume";
+
+      return(decision);
+   }
+
+   actual_trade_risk =
+      MathAbs(actual_trade_risk);
+
+   //-----------------------------------------------------------------
+   // In fixed-lot mode, do not allow the fixed lot to violate risk.
+   //-----------------------------------------------------------------
+   if(InpUseFixedLot &&
+      actual_trade_risk >
+         decision.risk_money)
+   {
+      decision.reason =
+         StringFormat(
+            "Fixed lot risk %.2f exceeds allowed %.2f",
+            actual_trade_risk,
+            decision.risk_money
+         );
+
+      return(decision);
+   }
+
+   //-----------------------------------------------------------------
+   // Open-risk cap
    //-----------------------------------------------------------------
    decision.current_open_risk =
       CalculateOpenRiskMoney();
 
    decision.projected_open_risk =
       decision.current_open_risk +
-      decision.risk_money;
+      actual_trade_risk;
 
    double maximum_open_risk =
       decision.equity *
@@ -1275,7 +1619,7 @@ RiskDecision ApproveRisk(
    {
       decision.reason =
          StringFormat(
-            "Open-risk cap exceeded: %.2f > %.2f",
+            "Open-risk cap exceeded %.2f > %.2f",
             decision.projected_open_risk,
             maximum_open_risk
          );
@@ -1284,10 +1628,8 @@ RiskDecision ApproveRisk(
    }
 
    //-----------------------------------------------------------------
-   // Margin check
+   // Margin
    //-----------------------------------------------------------------
-   double margin_required = 0.0;
-
    ENUM_ORDER_TYPE order_type;
 
    if(signal.direction == SIGNAL_BUY)
@@ -1295,15 +1637,19 @@ RiskDecision ApproveRisk(
    else
       order_type = ORDER_TYPE_SELL;
 
+   double margin_required = 0.0;
+
    if(!OrderCalcMargin(
          order_type,
          _Symbol,
          decision.volume,
          signal.entry,
-         margin_required))
+         margin_required
+      ))
    {
       decision.reason =
          "OrderCalcMargin failed";
+
       return(decision);
    }
 
@@ -1316,7 +1662,7 @@ RiskDecision ApproveRisk(
    {
       decision.reason =
          StringFormat(
-            "Insufficient margin: %.2f required, %.2f free",
+            "Insufficient margin %.2f > %.2f",
             margin_required,
             free_margin
          );
@@ -1324,11 +1670,12 @@ RiskDecision ApproveRisk(
       return(decision);
    }
 
-   //-----------------------------------------------------------------
-   // Approved
-   //-----------------------------------------------------------------
+   decision.risk_money =
+      actual_trade_risk;
+
    decision.approved = true;
-   decision.reason = "Risk approved";
+   decision.reason =
+      "Risk approved";
 
    return(decision);
 }
@@ -1338,10 +1685,24 @@ RiskDecision ApproveRisk(
 //====================================================================
 
 bool ExecuteTrade(
-   TradeSignal &signal,
-   RiskDecision &risk
+   TradeSignal &signal
 )
 {
+   //-----------------------------------------------------------------
+   // Diagnostic signal-only mode.
+   //-----------------------------------------------------------------
+   if(InpSignalOnly)
+   {
+      PrintFormat(
+         "QF DIAGNOSTIC: SIGNAL ONLY - no order sent."
+      );
+
+      return(true);
+   }
+
+   //-----------------------------------------------------------------
+   // Refresh market price immediately before execution.
+   //-----------------------------------------------------------------
    double ask =
       SymbolInfoDouble(
          _Symbol,
@@ -1354,22 +1715,17 @@ bool ExecuteTrade(
          SYMBOL_BID
       );
 
-   if(ask <= 0.0 || bid <= 0.0)
+   if(ask <= 0.0 ||
+      bid <= 0.0)
    {
-      Print("QF EXECUTION: Invalid market prices");
+      Print(
+         "QF EXECUTION: Invalid bid/ask"
+      );
+
       return(false);
    }
 
-   // Refresh entry price immediately before execution.
-   double entry;
-
-   if(signal.direction == SIGNAL_BUY)
-      entry = ask;
-   else
-      entry = bid;
-
-   // Preserve structural stop distance.
-   double stop_distance =
+   double original_distance =
       MathAbs(
          signal.entry -
          signal.stop
@@ -1377,44 +1733,48 @@ bool ExecuteTrade(
 
    if(signal.direction == SIGNAL_BUY)
    {
-      signal.entry = entry;
+      signal.entry = ask;
+
       signal.stop =
          NormalizePrice(
-            entry - stop_distance
+            signal.entry -
+            original_distance
          );
 
       signal.target =
          NormalizePrice(
-            entry +
-            stop_distance *
+            signal.entry +
+            original_distance *
             InpRiskRewardRatio
          );
    }
    else
    {
-      signal.entry = entry;
+      signal.entry = bid;
+
       signal.stop =
          NormalizePrice(
-            entry + stop_distance
+            signal.entry +
+            original_distance
          );
 
       signal.target =
          NormalizePrice(
-            entry -
-            stop_distance *
+            signal.entry -
+            original_distance *
             InpRiskRewardRatio
          );
    }
 
-   //-----------------------------------------------------------------
-   // Final stop validation after price refresh.
-   //-----------------------------------------------------------------
    string reason;
 
-   if(!ValidateStops(signal, reason))
+   if(!ValidateStops(
+         signal,
+         reason
+      ))
    {
       PrintFormat(
-         "QF EXECUTION: Final stop validation failed: %s",
+         "QF EXECUTION: final stop validation failed: %s",
          reason
       );
 
@@ -1422,76 +1782,29 @@ bool ExecuteTrade(
    }
 
    //-----------------------------------------------------------------
-   // Recalculate actual volume because entry changed.
+   // Recalculate risk at refreshed price.
    //-----------------------------------------------------------------
-   RiskDecision final_risk;
+   RiskDecision risk =
+      ApproveRisk(signal);
 
-   if(!CalculateRiskVolume(
-         signal,
-         final_risk))
+   if(!risk.approved)
    {
       PrintFormat(
-         "QF EXECUTION: Final sizing failed: %s",
-         final_risk.reason
+         "QF EXECUTION: final risk rejected: %s",
+         risk.reason
       );
 
       return(false);
    }
 
-   if(final_risk.volume <= 0.0)
-   {
-      Print("QF EXECUTION: Final volume is zero");
-      return(false);
-   }
-
-   //-----------------------------------------------------------------
-   // Margin
-   //-----------------------------------------------------------------
-   double margin_required = 0.0;
-
-   ENUM_ORDER_TYPE order_type;
-
-   if(signal.direction == SIGNAL_BUY)
-      order_type = ORDER_TYPE_BUY;
-   else
-      order_type = ORDER_TYPE_SELL;
-
-   if(!OrderCalcMargin(
-         order_type,
-         _Symbol,
-         final_risk.volume,
-         signal.entry,
-         margin_required))
-   {
-      Print("QF EXECUTION: Margin calculation failed");
-      return(false);
-   }
-
-   if(margin_required >
-      AccountInfoDouble(ACCOUNT_MARGIN_FREE))
-   {
-      Print("QF EXECUTION: Insufficient free margin");
-      return(false);
-   }
-
-   //-----------------------------------------------------------------
-   // Execute
-   //-----------------------------------------------------------------
-
-   string comment;
-
-   if(signal.direction == SIGNAL_BUY)
-      comment =
-         StringFormat(
-            "%s BUY",
-            InpStrategyName
-         );
-   else
-      comment =
-         StringFormat(
-            "%s SELL",
-            InpStrategyName
-         );
+   string comment =
+      StringFormat(
+         "%s %s",
+         InpStrategyName,
+         signal.direction == SIGNAL_BUY
+            ? "BUY"
+            : "SELL"
+      );
 
    bool sent = false;
 
@@ -1501,7 +1814,7 @@ bool ExecuteTrade(
    {
       sent =
          m_trade.Buy(
-            final_risk.volume,
+            risk.volume,
             _Symbol,
             0.0,
             signal.stop,
@@ -1513,7 +1826,7 @@ bool ExecuteTrade(
    {
       sent =
          m_trade.Sell(
-            final_risk.volume,
+            risk.volume,
             _Symbol,
             0.0,
             signal.stop,
@@ -1522,22 +1835,18 @@ bool ExecuteTrade(
          );
    }
 
-   //-----------------------------------------------------------------
-   // IMPORTANT:
-   // CTrade returning true does not by itself guarantee execution.
-   //-----------------------------------------------------------------
    uint retcode =
       m_trade.ResultRetcode();
 
-   string ret_desc =
+   string description =
       m_trade.ResultRetcodeDescription();
 
    if(!sent)
    {
       PrintFormat(
-         "QF EXECUTION FAILED: retcode=%u %s error=%d",
+         "QF EXECUTION FAILED: retcode=%u %s LastError=%d",
          retcode,
-         ret_desc,
+         description,
          GetLastError()
       );
 
@@ -1551,78 +1860,132 @@ bool ExecuteTrade(
       PrintFormat(
          "QF EXECUTION REJECTED: retcode=%u %s",
          retcode,
-         ret_desc
+         description
       );
 
       return(false);
    }
 
-   //-----------------------------------------------------------------
-   // Audit log
-   //-----------------------------------------------------------------
-
    PrintFormat(
-      "QF EXECUTED | %s | %s | Vol=%.4f | Entry=%.*f | SL=%.*f | TP=%.*f | Risk=%.2f",
+      "QF EXECUTED | %s | %s | Volume=%.4f | Entry=%.*f | SL=%.*f | TP=%.*f | Risk=%.2f",
       signal.session,
       signal.direction == SIGNAL_BUY
          ? "BUY"
          : "SELL",
-      final_risk.volume,
+      risk.volume,
       _Digits,
       signal.entry,
       _Digits,
       signal.stop,
       _Digits,
       signal.target,
-      final_risk.risk_money
+      risk.risk_money
    );
 
    return(true);
 }
 
 //====================================================================
-// CLOSE EA POSITIONS
+// DIAGNOSTIC REPORT
 //====================================================================
 
-void CloseAllEAPositions()
+void PrintSessionReport(
+   OpeningRange &range,
+   TradeSignal &signal,
+   RiskDecision &risk
+)
 {
-   for(int i = PositionsTotal() - 1; i >= 0; i--)
+   if(!InpDiagnosticMode ||
+      !InpVerboseDiagnostics)
+      return;
+
+   string direction =
+      "NONE";
+
+   if(signal.direction == SIGNAL_BUY)
+      direction = "BUY";
+
+   if(signal.direction == SIGNAL_SELL)
+      direction = "SELL";
+
+   Print(
+      "------------------------------------------------------------"
+   );
+
+   PrintFormat(
+      "QF SESSION REPORT | %s | %s",
+      signal.session,
+      TimeToString(
+         range.start,
+         TIME_DATE | TIME_MINUTES
+      )
+   );
+
+   PrintFormat(
+      "OR: bars=%d open=%.5f high=%.5f low=%.5f close=%.5f",
+      range.bars,
+      range.open,
+      range.high,
+      range.low,
+      range.close
+   );
+
+   PrintFormat(
+      "INDICATORS: ATR=%.5f EMA=%.5f displacement=%.5f required=%.5f",
+      signal.atr,
+      signal.ema,
+      signal.displacement,
+      InpMinDisplacementATR * signal.atr
+   );
+
+   PrintFormat(
+      "SIGNAL: valid=%s direction=%s reason=%s",
+      signal.valid ? "YES" : "NO",
+      direction,
+      signal.reason
+   );
+
+   if(signal.valid)
    {
-      ulong ticket =
-         PositionGetTicket(i);
+      PrintFormat(
+         "TRADE: entry=%.5f stop=%.5f target=%.5f stop_distance=%.5f",
+         signal.entry,
+         signal.stop,
+         signal.target,
+         MathAbs(signal.entry - signal.stop)
+      );
 
-      if(ticket == 0)
-         continue;
-
-      if(PositionGetInteger(POSITION_MAGIC)
-            != (long)InpMagicNumber)
-         continue;
-
-      string symbol =
-         PositionGetString(POSITION_SYMBOL);
-
-      if(!m_trade.PositionClose(ticket))
-      {
-         PrintFormat(
-            "QF KILL SWITCH: Failed to close ticket %I64u on %s: %s",
-            ticket,
-            symbol,
-            m_trade.ResultRetcodeDescription()
-         );
-      }
-      else
-      {
-         PrintFormat(
-            "QF KILL SWITCH: Closed ticket %I64u on %s",
-            ticket,
-            symbol
-         );
-      }
+      PrintFormat(
+         "RISK: approved=%s volume=%.4f equity=%.2f allowed_risk=%.2f loss_per_lot=%.2f reason=%s",
+         risk.approved ? "YES" : "NO",
+         risk.volume,
+         risk.equity,
+         risk.risk_money,
+         risk.loss_per_lot,
+         risk.reason
+      );
    }
+   else
+   {
+      PrintFormat(
+         "RISK: not evaluated because signal is invalid."
+      );
+   }
+
+   PrintFormat(
+      "DRAWDOWN: daily=%.2f%% total=%.2f%% kill=%s",
+      risk.daily_drawdown,
+      risk.total_drawdown,
+      g_kill_switch ? "YES" : "NO"
+   );
+
+   Print(
+      "------------------------------------------------------------"
+   );
 }
 
 //====================================================================
-// SESSION PROCESSING
+// PROCESS ONE SESSION
 //====================================================================
 
 bool ProcessSession(
@@ -1631,31 +1994,33 @@ bool ProcessSession(
    int range_minutes
 )
 {
-   //-----------------------------------------------------------------
-   // Build completed opening range
-   //-----------------------------------------------------------------
-
    OpeningRange range;
 
+   //-----------------------------------------------------------------
+   // Do NOT mark session processed if data isn't available.
+   //-----------------------------------------------------------------
    if(!BuildOpeningRange(
          session_start,
          range_minutes,
-         range))
+         range
+      ))
    {
+      PrintFormat(
+         "QF SESSION: %s waiting for valid opening-range data.",
+         session_name
+      );
+
       return(false);
    }
-
-   //-----------------------------------------------------------------
-   // Indicators
-   //-----------------------------------------------------------------
 
    double atr = 0.0;
    double ema = 0.0;
 
    if(!GetATR(atr))
    {
-      Print(
-         "QF DATA: ATR unavailable"
+      PrintFormat(
+         "QF DATA: %s ATR unavailable.",
+         session_name
       );
 
       return(false);
@@ -1663,16 +2028,13 @@ bool ProcessSession(
 
    if(!GetEMA(ema))
    {
-      Print(
-         "QF DATA: EMA unavailable"
+      PrintFormat(
+         "QF DATA: %s EMA unavailable.",
+         session_name
       );
 
       return(false);
    }
-
-   //-----------------------------------------------------------------
-   // Strategy
-   //-----------------------------------------------------------------
 
    TradeSignal signal =
       EvaluateSignal(
@@ -1682,49 +2044,80 @@ bool ProcessSession(
          session_name
       );
 
-   if(!signal.valid)
+   RiskDecision risk;
+
+   risk.approved = false;
+   risk.reason = "";
+   risk.equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   risk.risk_money = 0.0;
+   risk.stop_distance = 0.0;
+   risk.loss_at_fixed_volume = 0.0;
+   risk.loss_per_lot = 0.0;
+   risk.volume = 0.0;
+   risk.current_open_risk = 0.0;
+   risk.projected_open_risk = 0.0;
+   risk.daily_drawdown = GetDailyDrawdownPercent();
+   risk.total_drawdown = GetTotalDrawdownPercent();
+
+   if(signal.valid)
    {
-      PrintFormat(
-         "QF SIGNAL: %s | %s | displacement=%.5f ATR=%.5f EMA=%.5f",
-         session_name,
-         signal.reason,
-         signal.displacement,
-         atr,
-         ema
-      );
+      risk =
+         ApproveRisk(signal);
 
-      return(false);
-   }
-
-   //-----------------------------------------------------------------
-   // Risk approval
-   //-----------------------------------------------------------------
-
-   RiskDecision risk =
-      ApproveRisk(signal);
-
-   if(!risk.approved)
-   {
-      PrintFormat(
-         "QF RISK REJECTED | %s | %s",
-         session_name,
-         risk.reason
-      );
-
-      return(false);
-   }
-
-   //-----------------------------------------------------------------
-   // Execution
-   //-----------------------------------------------------------------
-
-   bool executed =
-      ExecuteTrade(
+      //----------------------------------------------------------------
+      // Diagnostic report before signal-only execution.
+      //----------------------------------------------------------------
+      PrintSessionReport(
+         range,
          signal,
          risk
       );
 
-   return(executed);
+      //----------------------------------------------------------------
+      // Signal-only mode: we count the signal as evaluated but don't
+      // place an order.
+      //----------------------------------------------------------------
+      if(InpSignalOnly)
+      {
+         if(signal.valid)
+         {
+            PrintFormat(
+               "QF DIAGNOSTIC: %s signal detected. SIGNAL ONLY mode.",
+               session_name
+            );
+
+            return(true);
+         }
+
+         return(false);
+      }
+
+      //----------------------------------------------------------------
+      // Real execution.
+      //----------------------------------------------------------------
+      if(!risk.approved)
+      {
+         PrintFormat(
+            "QF RISK REJECTED | %s | %s",
+            session_name,
+            risk.reason
+         );
+
+         return(false);
+      }
+
+      return(
+         ExecuteTrade(signal)
+      );
+   }
+
+   PrintSessionReport(
+      range,
+      signal,
+      risk
+   );
+
+   return(false);
 }
 
 //====================================================================
@@ -1734,30 +2127,30 @@ bool ProcessSession(
 int OnInit()
 {
    //-----------------------------------------------------------------
-   // Validate configuration
+   // Basic validation
    //-----------------------------------------------------------------
-
    if(InpRiskPerTradePercent <= 0.0)
    {
       Print(
-         "QF INIT ERROR: Risk per trade must be > 0"
+         "QF INIT ERROR: InpRiskPerTradePercent must be > 0"
       );
 
       return(INIT_FAILED);
    }
 
-   if(InpRiskPerTradePercent >=
-      InpMaxDailyDrawdownPercent)
-   {
-      Print(
-         "QF INIT WARNING: Single-trade risk >= daily DD limit"
-      );
-   }
-
    if(InpRiskRewardRatio <= 0.0)
    {
       Print(
-         "QF INIT ERROR: Risk/reward must be > 0"
+         "QF INIT ERROR: InpRiskRewardRatio must be > 0"
+      );
+
+      return(INIT_FAILED);
+   }
+
+   if(InpMaxLotSize <= 0.0)
+   {
+      Print(
+         "QF INIT ERROR: InpMaxLotSize must be > 0"
       );
 
       return(INIT_FAILED);
@@ -1767,16 +2160,15 @@ int OnInit()
       InpNYRangeMinutes <= 0)
    {
       Print(
-         "QF INIT ERROR: Range minutes must be > 0"
+         "QF INIT ERROR: range minutes must be > 0"
       );
 
       return(INIT_FAILED);
    }
 
    //-----------------------------------------------------------------
-   // Magic / trade setup
+   // Trading setup
    //-----------------------------------------------------------------
-
    m_trade.SetExpertMagicNumber(
       InpMagicNumber
    );
@@ -1790,9 +2182,8 @@ int OnInit()
    );
 
    //-----------------------------------------------------------------
-   // Indicator handles
+   // Indicators
    //-----------------------------------------------------------------
-
    h_atr =
       iATR(
          _Symbol,
@@ -1810,30 +2201,25 @@ int OnInit()
          PRICE_CLOSE
       );
 
-   if(h_atr == INVALID_HANDLE)
+   if(h_atr == INVALID_HANDLE ||
+      h_ema == INVALID_HANDLE)
    {
       Print(
-         "QF INIT ERROR: ATR handle failed"
+         "QF INIT ERROR: failed to create indicator handles"
       );
 
-      return(INIT_FAILED);
-   }
+      if(h_atr != INVALID_HANDLE)
+         IndicatorRelease(h_atr);
 
-   if(h_ema == INVALID_HANDLE)
-   {
-      Print(
-         "QF INIT ERROR: EMA handle failed"
-      );
-
-      IndicatorRelease(h_atr);
+      if(h_ema != INVALID_HANDLE)
+         IndicatorRelease(h_ema);
 
       return(INIT_FAILED);
    }
 
    //-----------------------------------------------------------------
-   // Persistent-state namespace
+   // State namespace
    //-----------------------------------------------------------------
-
    g_prefix =
       StringFormat(
          "QF_%I64u_%s_",
@@ -1841,67 +2227,76 @@ int OnInit()
          _Symbol
       );
 
-   //-----------------------------------------------------------------
-   // Load state
-   //-----------------------------------------------------------------
-
    LoadState();
-
-   //-----------------------------------------------------------------
-   // Startup risk evaluation
-   //-----------------------------------------------------------------
-
    UpdateRiskState();
 
-   PrintFormat(
+   //-----------------------------------------------------------------
+   // Startup report
+   //-----------------------------------------------------------------
+   Print(
       "============================================================"
    );
 
    PrintFormat(
-      "QuantForge Crabel Executor v8.0"
+      "QuantForge Crabel Executor v8.1"
    );
 
    PrintFormat(
-      "Symbol: %s",
-      _Symbol
-   );
-
-   PrintFormat(
-      "Magic: %I64u",
+      "Symbol=%s Magic=%I64u",
+      _Symbol,
       InpMagicNumber
    );
 
    PrintFormat(
-      "Broker UTC Offset: %+d",
+      "Tester=%s Diagnostic=%s SignalOnly=%s",
+      MQLInfoInteger(MQL_TESTER) ? "YES" : "NO",
+      InpDiagnosticMode ? "YES" : "NO",
+      InpSignalOnly ? "YES" : "NO"
+   );
+
+   PrintFormat(
+      "Broker UTC Offset=%d",
       InpBrokerUtcOffsetHours
    );
 
    PrintFormat(
-      "Risk/Trade: %.2f%%",
-      InpRiskPerTradePercent
+      "London=%02d:%02d UTC range=%d min",
+      InpLondonStartHour,
+      InpLondonStartMinute,
+      InpLondonRangeMinutes
    );
 
    PrintFormat(
-      "Daily DD Limit: %.2f%%",
-      InpMaxDailyDrawdownPercent
+      "NY=%02d:%02d UTC range=%d min",
+      InpNYStartHour,
+      InpNYStartMinute,
+      InpNYRangeMinutes
    );
 
    PrintFormat(
-      "Total DD Limit: %.2f%%",
-      InpMaxTotalDrawdownPercent
-   );
-
-   PrintFormat(
-      "Max Open Risk: %.2f%%",
-      InpMaxOpenRiskPercent
-   );
-
-   PrintFormat(
-      "R:R: 1:%.2f",
+      "Momentum=%.2f ATR | EMA=%d | Target=%.2fR",
+      InpMinDisplacementATR,
+      InpEmaPeriod,
       InpRiskRewardRatio
    );
 
    PrintFormat(
+      "Risk=%.2f%% | DailyDD=%.2f%% | TotalDD=%.2f%% | OpenRisk=%.2f%%",
+      InpRiskPerTradePercent,
+      InpMaxDailyDrawdownPercent,
+      InpMaxTotalDrawdownPercent,
+      InpMaxOpenRiskPercent
+   );
+
+   if(InpDiagnosticBypassRisk &&
+      !MQLInfoInteger(MQL_TESTER))
+   {
+      Print(
+         "QF WARNING: Diagnostic risk bypass is ignored outside Strategy Tester."
+      );
+   }
+
+   Print(
       "============================================================"
    );
 
@@ -1926,15 +2321,11 @@ void OnDeinit(
 }
 
 //====================================================================
-// MAIN TICK
+// MAIN LOOP
 //====================================================================
 
 void OnTick()
 {
-   //-----------------------------------------------------------------
-   // Maintain risk state first.
-   //-----------------------------------------------------------------
-
    datetime now =
       GetUtcNow();
 
@@ -1942,12 +2333,12 @@ void OnTick()
       GetUtcDayStart(now);
 
    //-----------------------------------------------------------------
-   // Detect new UTC day
+   // New UTC day
    //-----------------------------------------------------------------
-
    if(today != g_utc_day_start)
    {
-      g_utc_day_start = today;
+      g_utc_day_start =
+         today;
 
       g_day_start_equity =
          AccountInfoDouble(
@@ -1957,38 +2348,41 @@ void OnTick()
       g_london_processed = false;
       g_ny_processed = false;
 
-      // Kill switch resets for the new daily session.
-      // Total drawdown is still independently monitored.
+      // Daily lock resets; total DD is separately evaluated.
       g_kill_switch = false;
 
       SaveState();
 
-      PrintFormat(
-         "QF SESSION: New UTC day. Starting equity=%.2f",
-         g_day_start_equity
-      );
+      if(InpDiagnosticMode)
+      {
+         PrintFormat(
+            "QF DAY RESET | UTC=%s | StartEquity=%.2f",
+            TimeToString(
+               now,
+               TIME_DATE | TIME_MINUTES
+            ),
+            g_day_start_equity
+         );
+      }
    }
 
    //-----------------------------------------------------------------
-   // Risk engine has priority over everything.
+   // Risk state first.
    //-----------------------------------------------------------------
-
    UpdateRiskState();
 
    if(g_kill_switch)
       return;
 
    //-----------------------------------------------------------------
-   // Only one active EA position at a time.
+   // One active position at a time.
    //-----------------------------------------------------------------
-
    if(CountEAPositions() > 0)
       return;
 
    //-----------------------------------------------------------------
-   // Ask session engine whether a completed session is ready.
+   // Get one ready session.
    //-----------------------------------------------------------------
-
    string session_name;
    datetime session_start;
    int range_minutes;
@@ -1996,16 +2390,16 @@ void OnTick()
    if(!GetReadySession(
          session_name,
          session_start,
-         range_minutes))
+         range_minutes
+      ))
    {
       return;
    }
 
    //-----------------------------------------------------------------
-   // Process session.
+   // Process.
    //-----------------------------------------------------------------
-
-   bool executed =
+   bool result =
       ProcessSession(
          session_name,
          session_start,
@@ -2013,37 +2407,39 @@ void OnTick()
       );
 
    //-----------------------------------------------------------------
-   // IMPORTANT:
-   // Mark session processed whether a trade happened or not.
+   // Only mark processed after valid data was obtained.
    //
-   // This prevents repeated evaluation every tick and makes the
-   // session a deterministic once-per-day event.
+   // ProcessSession() returns false for both "no signal" and "data
+   // unavailable". We therefore separately verify that the OR is
+   // available before consuming the session.
    //-----------------------------------------------------------------
+   OpeningRange verify_range;
 
-   if(session_name == "LONDON")
-   {
-      g_london_processed = true;
-      SaveState();
-   }
-   else if(session_name == "NEW_YORK")
-   {
-      g_ny_processed = true;
-      SaveState();
-   }
+   bool range_available =
+      BuildOpeningRange(
+         session_start,
+         range_minutes,
+         verify_range
+      );
 
-   if(executed)
+   if(range_available)
    {
-      PrintFormat(
-         "QF SESSION COMPLETE: %s trade executed.",
-         session_name
-      );
-   }
-   else
-   {
-      PrintFormat(
-         "QF SESSION COMPLETE: %s evaluated, no trade executed.",
-         session_name
-      );
+      if(session_name == "LONDON")
+         g_london_processed = true;
+
+      if(session_name == "NEW_YORK")
+         g_ny_processed = true;
+
+      SaveState();
+
+      if(InpDiagnosticMode)
+      {
+         PrintFormat(
+            "QF SESSION CONSUMED | %s | Result=%s",
+            session_name,
+            result ? "SIGNAL/TRADE" : "NO TRADE"
+         );
+      }
    }
 }
 //+------------------------------------------------------------------+

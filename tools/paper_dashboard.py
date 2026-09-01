@@ -1747,6 +1747,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
+        # Public live market fallback if MT5 snapshot is connecting
+        if LATEST_QUOTES["BTCUSDm"]["bid"] <= 0.0:
+            try:
+                pub_req = urllib.request.Request(
+                    "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+                    headers={"User-Agent": "QuantForge-Studio/1.0"},
+                )
+                with urllib.request.urlopen(pub_req, timeout=1) as p_resp:
+                    if p_resp.status == 200:
+                        p_data = json.loads(p_resp.read().decode("utf-8"))
+                        btc_p = float(p_data.get("price", 0.0))
+                        if btc_p > 0:
+                            time_now = datetime.now().strftime("%H:%M:%S")
+                            LATEST_QUOTES["BTCUSDm"] = {
+                                "bid": btc_p,
+                                "ask": btc_p + 15.0,
+                                "spread_points": 15.0,
+                                "tick_time": time_now,
+                                "symbol": "BTCUSDm (Live Feed)",
+                                "is_live": True,
+                            }
+                            if not PRICE_HISTORIES["BTCUSDm"]:
+                                PRICE_HISTORIES["BTCUSDm"].append({"time": time_now, "bid": btc_p, "ask": btc_p + 15.0})
+            except Exception:
+                pass
+
+        if LATEST_QUOTES[active_sym_key]["bid"] <= 0.0 and LATEST_QUOTES["BTCUSDm"]["bid"] > 0.0:
+            active_sym_key = "BTCUSDm"
+
         live_quote = LATEST_QUOTES[active_sym_key]
 
         # Calculate tick rate

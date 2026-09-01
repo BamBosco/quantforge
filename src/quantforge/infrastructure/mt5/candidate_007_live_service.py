@@ -94,7 +94,10 @@ def create_candidate_007_live_bridge(
         if symbol and "BTC" in symbol.upper():
             settings = Candidate007Settings.for_btcusd_scalper()
         else:
-            settings = Candidate007Settings(instrument=symbol or "XAUUSD")
+            settings = Candidate007Settings.for_gold_active_scalper(
+                instrument=symbol or "XAUUSDm"
+            )
+
 
     paper_host, strategy, portfolio, journal = build_candidate_007_paper_host(
         journal_path,
@@ -119,9 +122,11 @@ def create_candidate_007_live_bridge(
                 if side in {"buy", "sell"}:
                     order_side: Literal["buy", "sell"] = "buy" if side == "buy" else "sell"
                     entry_p = float(ex.fill.price)
-                    dist = 85.0 if "BTC" in observation.broker_symbol.upper() else 1.5
-                    sl = entry_p - dist if order_side == "buy" else entry_p + dist
-                    tp = entry_p + (dist * 1.5) if order_side == "buy" else entry_p - (dist * 1.5)
+                    is_btc = "BTC" in observation.broker_symbol.upper()
+                    sl_dist = 120.0 if is_btc else 3.50   # $3.50 protective structural SL on Gold (35 pips)
+                    tp_dist = 250.0 if is_btc else 12.25  # $12.25 (3.5:1) Take Profit on Gold (122.5 pips)
+                    sl = entry_p - sl_dist if order_side == "buy" else entry_p + sl_dist
+                    tp = entry_p + tp_dist if order_side == "buy" else entry_p - tp_dist
                     req = OrderRequest(
                         order_id=str(ex.outcome.order_id),
                         symbol=observation.broker_symbol,
@@ -158,8 +163,9 @@ def create_candidate_007_live_bridge(
     obs_log = SQLiteMarketObservationLog(obs_log_path)
     store = Candidate007SnapshotStore(obs_log, consumer, on_reset=on_reset)
     handler = _handler_for(
-        store, token, expected_symbol=symbol, execution_queue=execution_queue
+        store, token, expected_symbol=None, execution_queue=execution_queue
     )
+
 
     server = ReadOnlyBridgeServer((host, port), handler, store)
     return server, strategy, portfolio, journal, execution_queue

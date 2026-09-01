@@ -84,7 +84,8 @@ def main() -> None:
     if is_crypto:
         settings = Candidate007Settings.for_btcusd_scalper()
     else:
-        settings = Candidate007Settings.for_gold_active_scalper()
+        settings = Candidate007Settings.for_gold_active_scalper(instrument=args.symbol)
+
 
     server, strategy, portfolio, journal, execution_queue = create_candidate_007_live_bridge(
         host=args.host,

@@ -94,10 +94,12 @@ class Candidate007Settings:
         return cls.for_gold_active_scalper()
 
     @classmethod
-    def for_gold_active_scalper(cls) -> Candidate007Settings:
-        """Active High-Frequency Precision Micro-Scalper for Gold (XAUUSD) — up to 250 trades/day."""
+    def for_gold_active_scalper(
+        cls, instrument: str = "XAUUSDm"
+    ) -> Candidate007Settings:
+        """High-Frequency Precision Micro-Scalper for Gold (XAUUSDm) — up to 250 scalps/day."""
         return cls(
-            instrument="XAUUSD",
+            instrument=instrument,
             atr_period=7,
             atr_ma_period=14,
             ema_trend_period=20,
@@ -112,6 +114,8 @@ class Candidate007Settings:
             session_end_ny=time(23, 59),
             exit_time_ny=time(23, 59),
         )
+
+
 
     @classmethod
     def for_btcusd_scalper(cls) -> Candidate007Settings:
@@ -220,9 +224,16 @@ class Candidate007Strategy:
         date_key = session_time.date().isoformat()
         current_time = session_time.time()
 
-        # Weekend filter (disabled for 24/7 crypto like BTCUSD)
-        if not self.settings.allow_weekend_trading and session_time.weekday() > 4:
-            return None
+        # Weekend filter (disabled for 24/7 crypto; for standard FX/Metals, market opens Sunday 18:00 NY)
+        if not self.settings.allow_weekend_trading:
+            is_weekend_closed = (
+                session_time.weekday() == 5  # Saturday
+                or (session_time.weekday() == 4 and current_time >= time(17, 0))  # Friday after 17:00 NY
+                or (session_time.weekday() == 6 and current_time < time(18, 0))  # Sunday before 18:00 NY
+            )
+            if is_weekend_closed:
+                return None
+
 
         # Session timing check
         if not (
@@ -365,13 +376,19 @@ class Candidate007Strategy:
     def _valid_market(self, market: MarketFact) -> bool:
         norm_expected = self.settings.instrument.strip("#._/ ").replace("/", "").upper()
         norm_market = market.instrument.strip("#._/ ").replace("/", "").upper()
+        matches_symbol = (
+            market.instrument == self.settings.instrument
+            or norm_market == norm_expected
+            or norm_market.rstrip("MPS_.") == norm_expected.rstrip("MPS_.")
+            or ("XAU" in norm_market and "XAU" in norm_expected)
+            or ("GOLD" in norm_market and "GOLD" in norm_expected)
+            or ("BTC" in norm_market and "BTC" in norm_expected)
+        )
         return bool(
-            (
-                market.instrument == self.settings.instrument
-                or norm_market == norm_expected
-            )
+            matches_symbol
             and market.observed_at.tzinfo is not None
             and market.observed_at.utcoffset() is not None
             and market.bid > 0
             and market.ask >= market.bid
         )
+

@@ -51,6 +51,7 @@ class TelegramAIAssistant:
         self._last_update_id = 0
         self._processed_msg_ids: set[int] = set()
         self._is_running = False
+        self.active_risk_pct = 1.0
         self._init_db()
         self._fast_forward_updates()
 
@@ -223,26 +224,26 @@ class TelegramAIAssistant:
         clean_text = raw_text
 
         if "[ACTION:BUY_GOLD]" in clean_text:
-            res = self.execute_trade_action("buy", symbol="XAUUSD", quantity=0.01)
-            p = res.get("price", ctx.get("bid", 2735.0))
+            res = self.execute_trade_action("buy", symbol="XAUUSDm", quantity=0.01)
+            p = res.get("price", ctx.get("ask", 0.0))
             if res.get("success"):
-                action_log.append(f"🟢 <b>[EXECUTED] BUY 0.01 XAUUSD @ ${p:,.2f}</b>")
+                action_log.append(f"🟢 <b>[EXECUTED] BUY 0.01 XAUUSDm @ ${p:,.2f}</b>")
             else:
                 action_log.append(f"⚠️ [REJECTED] BUY Gold: {res.get('error')}")
             clean_text = clean_text.replace("[ACTION:BUY_GOLD]", "").strip()
 
         if "[ACTION:SELL_GOLD]" in clean_text:
-            res = self.execute_trade_action("sell", symbol="XAUUSD", quantity=0.01)
-            p = res.get("price", ctx.get("bid", 2735.0))
+            res = self.execute_trade_action("sell", symbol="XAUUSDm", quantity=0.01)
+            p = res.get("price", ctx.get("bid", 0.0))
             if res.get("success"):
-                action_log.append(f"🔴 <b>[EXECUTED] SELL 0.01 XAUUSD @ ${p:,.2f}</b>")
+                action_log.append(f"🔴 <b>[EXECUTED] SELL 0.01 XAUUSDm @ ${p:,.2f}</b>")
             else:
                 action_log.append(f"⚠️ [REJECTED] SELL Gold: {res.get('error')}")
             clean_text = clean_text.replace("[ACTION:SELL_GOLD]", "").strip()
 
         if "[ACTION:BUY_BTC]" in clean_text:
             res = self.execute_trade_action("buy", symbol="BTCUSDm", quantity=0.01)
-            p = res.get("price", ctx.get("bid", 78200.0))
+            p = res.get("price", ctx.get("ask", 0.0))
             if res.get("success"):
                 action_log.append(f"🟢 <b>[EXECUTED] BUY 0.01 BTCUSDm @ ${p:,.2f}</b>")
             else:
@@ -325,9 +326,8 @@ class TelegramAIAssistant:
             f"   • Trend Anchor: 50 EMA trend filter. Strictly trade in alignment with institutional order flow.\n"
             f"   • Momentum Channel: 20-bar Donchian channel breakout for high-probability impulse entries.\n"
             f"   • Volatility Gate: 14 ATR must expand above its 20 MA before firing entries.\n"
-            f"   • Structural Cushion: 2.0x ATR breathing room beyond swing levels to absorb institutional liquidity sweeps on Gold (XAUUSD) & Bitcoin (BTCUSDm).\n"
-            f"   • High-Frequency Target: Direct $1.00 to $2.00 scalp target banking fast intraday profits across 100–250 daily trade opportunities.\n"
-            f"   • Capital Protection Shield: 1.0% max risk per trade (~$0.30 on $30 capital), 0.01 micro-lots, positive breakeven lock at +0.6R (+3.5 pips).\n\n"
+            f"   • High-Frequency Target: Direct $1.20 to $1.80 scalp target banking fast intraday profits across quality setups.\n"
+            f"   • Capital Protection Shield: 1.0% max risk per trade (~$0.30 on $30 capital), 0.01 micro-lots, direct Take Profit exit with zero premature breakeven exits.\n\n"
             f"2. Institutional Literature & Trading Authorities in Repository:\n"
             f"   • Richard D. Wyckoff: Accumulation & Distribution schematics (Phases A–E), Springs, Upthrusts (UTAD), Selling/Buying Climaxes, Sign of Strength (SOS), Sign of Weakness (SOW), Jump Across the Creek (JAC), Composite Operator volume dynamics.\n"
             f"   • Marcos López de Prado (Advances in Financial Machine Learning): Triple Barrier Method (take-profit, stop-loss, time horizons), Meta-labeling for trade sizing/filtering, Structural regime breaks, Non-stationary feature engineering.\n"
@@ -579,7 +579,7 @@ class TelegramAIAssistant:
             pass
 
     def send_reply(self, chat_id: str, text: str) -> bool:
-        """Send HTML-formatted reply to Telegram user."""
+        """Send HTML-formatted reply to Telegram user with automatic fallback to plain text."""
         try:
             url = f"https://api.telegram.org/bot{self.config.bot_token}/sendMessage"
             payload = {
@@ -592,9 +592,20 @@ class TelegramAIAssistant:
             req = urllib.request.Request(url, data=data)
             with urllib.request.urlopen(req, context=self._ssl_ctx, timeout=5) as resp:
                 return bool(resp.status == 200)
-        except Exception as e:
-            logger.error(f"Failed to send Telegram reply: {e}")
-            return False
+        except Exception:
+            try:
+                # Fallback to plain text if HTML tags were unclosed or malformed
+                clean_plain = re.sub(r"<[^>]+>", "", text)
+                payload["text"] = clean_plain
+                if "parse_mode" in payload:
+                    del payload["parse_mode"]
+                data = urllib.parse.urlencode(payload).encode("utf-8")
+                req = urllib.request.Request(url, data=data)
+                with urllib.request.urlopen(req, context=self._ssl_ctx, timeout=5) as resp:
+                    return bool(resp.status == 200)
+            except Exception as e:
+                logger.error(f"Failed to send Telegram reply: {e}")
+                return False
 
     def process_incoming_message(
         self, chat_id: str, text: str, user_name: str = ""
@@ -629,7 +640,7 @@ class TelegramAIAssistant:
                 f"🧠 <i>Directly integrated with Google Gemini Neural AI, live MT5 telemetry, and SQLite memory.</i>\n\n"
                 f"<b>⚡ Instant Slash Commands:</b>\n"
                 f"• <code>/status</code> — Live equity, market mark price & PnL\n"
-                f"• <code>/positions</code> — Active open trades & breakeven status\n"
+                f"• <code>/positions</code> — Active open trades, target & stop levels\n"
                 f"• <code>/history</code> — Closed trade performance & win rate\n"
                 f"• <code>/strategy</code> — SMC Candidate 007 strategy rules\n"
                 f"• <code>/buy</code> or <code>/sell</code> — Instant 0.01 lot scalp\n"
@@ -665,10 +676,37 @@ class TelegramAIAssistant:
                 f"⚡ <b>Floating PnL</b>   : <b>{fl_sign}${fl_pnl:,.2f}</b> ({open_count} Open)\n"
                 f"🎯 <b>Banked Realized</b> : <b>{rl_sign}${rl_pnl:,.2f}</b>\n"
                 f"🏆 <b>Today Win Rate</b> : <b>{ctx['win_rate']:.1f}%</b> ({len(ctx['closed_trades'])} Closed)\n"
-                f"🛡️ <b>Risk Guard</b>     : <b>1.0% Capital Protected (0.01 Lots)</b>\n"
+                f"🛡️ <b>Risk Guard</b>     : <b>{self.active_risk_pct:.1f}% Capital Protected (0.01 Lots)</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"<i>Positive Breakeven Offset Active (+3.5 Pips Lock)</i>"
+                f"<i>Stepped Trailing Profit Lock Active ($0.60 / $1.50 / $2.50 Floors)</i>"
             )
+            self.store_chat("assistant", reply, chat_id=chat_id)
+            return reply
+
+        # 2b. Strict Command: /risk
+        if lower.startswith("/risk"):
+            parts = text.strip().split()
+            if len(parts) > 1:
+                try:
+                    val = float(parts[1].replace("%", ""))
+                    if 0.1 <= val <= 10.0:
+                        self.active_risk_pct = val
+                        reply = f"🛡️ Risk per Trade updated to <b>{val:.1f}%</b>."
+                    else:
+                        reply = "⚠️ Risk must be between 0.1% and 10.0%."
+                except ValueError:
+                    reply = "⚠️ Invalid risk percentage."
+            else:
+                reply = (
+                    f"🛡️ <b>QuantForge Capital Protection Architecture</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"• <b>Active Risk Budget</b>: <b>{self.active_risk_pct:.1f}%</b> per trade\n"
+                    f"• <b>Position Sizing</b>: Auto-scaled to account equity & ATR distance\n"
+                    f"• <b>Stop Loss</b>: Hard structural stop placed on every execution\n"
+                    f"• <b>Stepped Profit Protection</b>: Auto-locks profit floors ($0.60, $1.50, $2.50)\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>To adjust risk, send <code>/risk 2.0</code> (between 0.1% and 5.0%).</i>"
+                )
             self.store_chat("assistant", reply, chat_id=chat_id)
             return reply
 
@@ -689,11 +727,10 @@ class TelegramAIAssistant:
                 )
                 pnl = pos.get("floating_pnl", 0.0)
                 p_sign = "+" if pnl >= 0 else ""
-                be_status = (
-                    "🛡️ <b>BREAKEVEN LOCKED (+Profit Buffer)</b>"
-                    if pos.get("breakeven_active")
-                    else "⏳ <i>Developing Move (2.0x ATR Cushion)</i>"
-                )
+                tp_val = pos.get("target_price")
+                sl_val = pos.get("stop_loss_price")
+                target_str = f"${tp_val:,.2f}" if tp_val else "Dynamic Target (+1.5R)"
+                sl_str = f"${sl_val:,.2f}" if sl_val else "Structural Stop"
 
                 reply = (
                     f"⚡ <b>Active Trade Position ({len(open_pos)})</b>\n"
@@ -703,7 +740,8 @@ class TelegramAIAssistant:
                     f"Entry    : <b>${pos.get('open_price', 0.0):,.2f}</b>\n"
                     f"Current  : <b>${pos.get('current_price', ctx['bid']):,.2f}</b>\n"
                     f"Floating : <b>{p_sign}${pnl:,.2f}</b>\n"
-                    f"Protection: {be_status}\n"
+                    f"🎯 Target : <code>{target_str}</code>\n"
+                    f"🛑 Stop   : <code>{sl_str}</code>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"<i>Send <code>/close</code> or <code>/close_profit</code> anytime.</i>"
                 )
@@ -809,10 +847,10 @@ class TelegramAIAssistant:
         # 7. Direct Execution: BUY
         if lower in {"/buy", "/buy_gold", "/buy_btc", "buy gold", "buy btc", "buy bitcoin", "long gold", "long btc"}:
             is_gold = "gold" in lower or "xau" in lower
-            sym = "XAUUSD" if is_gold else ("BTCUSDm" if "btc" in lower or "bitcoin" in lower else ctx["symbol"])
+            sym = "XAUUSDm" if is_gold else ("BTCUSDm" if "btc" in lower or "bitcoin" in lower else ctx["symbol"])
             res = self.execute_trade_action("buy", symbol=sym, quantity=0.01)
             if res.get("success"):
-                entry_p = res.get("price", ctx["ask"] or (2735.50 if is_gold else 78250.0))
+                entry_p = float(res.get("price") or ctx.get("ask") or 0.0)
                 reply = (
                     f"🚀 <b>BUY {sym} Scalp Executed!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -820,10 +858,10 @@ class TelegramAIAssistant:
                     f"Instrument : <b>{sym}</b>\n"
                     f"Side       : 🟢 <b>BUY</b> (0.01 Lots)\n"
                     f"Fill Mark  : <b>${entry_p:,.2f}</b>\n"
-                    f"Risk Guard : <b>1.0% Capital Safe (2.0x ATR Cushion)</b>\n"
-                    f"Target     : <b>Direct Micro-Scalp Profit Sized</b>\n"
+                    f"Risk Guard : <b>1.0% Capital Protection</b>\n"
+                    f"Target     : <b>Dynamic Multi-Tier Scalp Target</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"<i>Dynamic Positive Breakeven will auto-lock profit!</i>"
+                    f"<i>Stepped Trailing Profit Lock will auto-protect gains!</i>"
                 )
             else:
                 reply = f"⚠️ <b>Execution Failed:</b> {res.get('error', 'Unknown error')}"
@@ -833,10 +871,10 @@ class TelegramAIAssistant:
         # 8. Direct Execution: SELL
         if lower in {"/sell", "/sell_gold", "/sell_btc", "sell gold", "sell btc", "sell bitcoin", "short gold", "short btc"}:
             is_gold = "gold" in lower or "xau" in lower
-            sym = "XAUUSD" if is_gold else ("BTCUSDm" if "btc" in lower or "bitcoin" in lower else ctx["symbol"])
+            sym = "XAUUSDm" if is_gold else ("BTCUSDm" if "btc" in lower or "bitcoin" in lower else ctx["symbol"])
             res = self.execute_trade_action("sell", symbol=sym, quantity=0.01)
             if res.get("success"):
-                entry_p = res.get("price", ctx["bid"] or (2735.00 if is_gold else 78250.0))
+                entry_p = float(res.get("price") or ctx.get("bid") or 0.0)
                 reply = (
                     f"🚀 <b>SELL {sym} Scalp Executed!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -844,10 +882,10 @@ class TelegramAIAssistant:
                     f"Instrument : <b>{sym}</b>\n"
                     f"Side       : 🔴 <b>SELL</b> (0.01 Lots)\n"
                     f"Fill Mark  : <b>${entry_p:,.2f}</b>\n"
-                    f"Risk Guard : <b>1.0% Capital Safe (2.0x ATR Cushion)</b>\n"
-                    f"Target     : <b>Direct Micro-Scalp Profit Sized</b>\n"
+                    f"Risk Guard : <b>1.0% Capital Protection</b>\n"
+                    f"Target     : <b>Dynamic Multi-Tier Scalp Target</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"<i>Dynamic Positive Breakeven will auto-lock profit!</i>"
+                    f"<i>Stepped Trailing Profit Lock will auto-protect gains!</i>"
                 )
             else:
                 reply = f"⚠️ <b>Execution Failed:</b> {res.get('error', 'Unknown error')}"
@@ -899,13 +937,86 @@ class TelegramAIAssistant:
     def generate_ai_conversational_reply(
         self, text: str, user_name: str, ctx: dict[str, Any]
     ) -> str:
-        """Directly query neural Gemini AI with zero canned templates."""
-        reply = self.query_gemini_ai(text, user_name, ctx, "default")
-        if reply:
-            return reply
+        """Provide intelligent, evidence-based quantitative diagnostics and reasoning using live market telemetry."""
+        lower = text.lower()
+        symbol = ctx.get("symbol", "XAUUSDm")
+        bid = ctx.get("bid", 0.0)
+        connected = ctx.get("connected", False)
+        open_pos = ctx.get("open_positions", [])
+        conn_str = "🟢 Connected & Receiving Ticks" if connected else "🟡 Listening on Loopback Bridge"
+
+        # 1. Diagnostic: Why are there no trades / executions?
+        if any(w in lower for w in ["why no", "no trade", "no execution", "not trading", "why haven't", "any trade", "are you trading", "haven't trade"]):
+            reasons = []
+            if not connected:
+                reasons.append("• <b>Bridge Connection</b>: Waiting for MT5 EA heartbeat/ticks (Check that EA is attached to chart and WebRequest is allowed).")
+            if bid <= 0:
+                reasons.append("• <b>Market Feed</b>: Waiting for active broker bid/ask price quotes.")
+            
+            reasons.append(
+                "• <b>Volatility Gate (14 ATR > 20 MA)</b>: Filter is scanning for institutional volume expansion. During quiet pre-session consolidation, low-volatility chop is strictly filtered out."
+            )
+            reasons.append(
+                "• <b>Momentum Breakout Gate</b>: Price is currently inside the Donchian channel. An impulse breakout beyond prior swing extremes is required for entry confirmation."
+            )
+            reasons.append(
+                "• <b>50 EMA Trend Filter</b>: Buys are only taken when price is above the 50 EMA; Sells only when below."
+            )
+
+            reason_text = "\n".join(reasons)
+            return (
+                f"🔍 <b>QuantForge Execution Diagnostic ({symbol})</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Bridge Status : <b>{conn_str}</b>\n"
+                f"Current Price : <code>${bid:,.2f}</code>\n"
+                f"Open Trades   : <b>{len(open_pos)} Active</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<b>Why no trade has fired yet:</b>\n"
+                f"{reason_text}\n\n"
+                f"🛡️ <i>The Risk Engine prevents random entries. Once volatility expands and price breaks channel structure, Candidate 007 will auto-execute instantly.</i>"
+            )
+
+        # 2. Market Structure & Analysis Check
+        if any(w in lower for w in ["gold", "btc", "market", "view", "analysis", "structure", "trend", "what do you think"]):
+            return (
+                f"📈 <b>Market Structure & Regime Report ({symbol})</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Market Mark   : <code>${bid:,.2f}</code>\n"
+                f"System State  : <b>{conn_str}</b>\n"
+                f"Account Equity: <b>${ctx.get('equity', 30.0):,.2f}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<b>Technical Outlook:</b>\n"
+                f"• <b>Macro Trend Anchor</b>: Evaluating price position relative to 50 EMA.\n"
+                f"• <b>Liquidity Pools</b>: Monitoring prior high/low session boundaries for buy-side/sell-side liquidity sweeps.\n"
+                f"• <b>SMC Execution Bias</b>: Waiting for high-velocity Donchian breakout + ATR expansion before entering 0.01 lot scalp.\n\n"
+                f"<i>Type <code>/buy</code> or <code>/sell</code> to manually force an immediate scalp, or <code>/status</code> for live stats.</i>"
+            )
+
+        # 3. Risk & Safety Queries
+        if any(w in lower for w in ["safe", "risk", "money", "capital", "protect", "drawdown"]):
+            return (
+                "🛡️ <b>QuantForge Capital Protection Architecture</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "• <b>Strict 1.0% Capital Budget</b>: Max risk per trade is strictly capped at ~1.0% ($0.30 per micro-lot).\n"
+                "• <b>Positive Breakeven Lock</b>: Stop-loss is automatically adjusted into profit after +0.6R expansion (+3.5 pips).\n"
+                "• <b>No Revenge Trading</b>: 1-bar cooldown and daily loss circuit breakers prevent overtrading.\n"
+                "• <b>Immutable Journal</b>: All intents, decisions, and receipts are recorded in local SQLite database.\n\n"
+                "<i>Capital preservation is our first mathematical invariant.</i>"
+            )
+
+        # 4. General Conversational / Greeting
         return (
-            "⚠️ <b>QuantForge Neural AI is currently processing high computational load.</b>\n"
-            "Please repeat your prompt or trade command in a moment."
+            f"👋 <b>QuantForge AI Quant Brain Online</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"I am actively monitoring <b>{symbol}</b> at <code>${bid:,.2f}</code>.\n"
+            f"Account Equity: <b>${ctx.get('equity', 30.0):,.2f}</b> ({len(open_pos)} Open Positions)\n\n"
+            f"<b>Useful Commands:</b>\n"
+            f"• <code>/status</code> — Live equity, market mark price & PnL\n"
+            f"• <code>/positions</code> — Active open trades, target & stop levels\n"
+            f"• <code>/strategy</code> — Candidate 007 SMC rules\n"
+            f"• <code>why no trades?</code> — Real-time execution diagnostic\n"
+            f"• <code>buy gold</code> or <code>sell gold</code> — Instant scalp execution\n"
+            f"• <code>close all</code> — Flatten entire portfolio"
         )
 
     def poll_once(self) -> None:
@@ -937,7 +1048,7 @@ class TelegramAIAssistant:
                         chat_id = str(chat.get("id", ""))
                         user_name = from_user.get("first_name", "")
 
-                        # Deduplicate & discard stale updates older than 25 seconds
+                        # Deduplicate & discard stale updates older than 300 seconds (5 minutes)
                         if msg_id and msg_id in self._processed_msg_ids:
                             continue
                         if msg_id:

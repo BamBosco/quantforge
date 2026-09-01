@@ -350,8 +350,20 @@ string CompletedCandlesJson(int max_bars = 60)
 //+------------------------------------------------------------------+
 void SendSnapshot()
   {
-   if(g_is_busy) return;
+   static datetime last_busy_time = 0;
+   if(g_is_busy)
+     {
+      if(TimeCurrent() - last_busy_time > 4)
+        {
+         g_is_busy = false;
+        }
+      else
+        {
+         return;
+        }
+     }
    g_is_busy = true;
+   last_busy_time = TimeCurrent();
 
    MqlTick tick;
    if(!SymbolInfoTick(g_symbol, tick) || tick.bid <= 0 || tick.ask <= 0)
@@ -492,4 +504,10 @@ void OnTimer()
 
 void OnTick()
   {
+   static datetime last_tick_send = 0;
+   if(TimeCurrent() - last_tick_send >= 1)
+     {
+      last_tick_send = TimeCurrent();
+      SendSnapshot();
+     }
   }

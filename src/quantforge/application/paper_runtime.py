@@ -264,6 +264,18 @@ class PaperRuntimeHost:
         payload = observation.payload
         instrument = str(payload["instrument"]["canonical_instrument"])
         metadata = self._instrument_metadata.get(instrument)
+        if metadata is None:
+            norm = instrument.strip("#._/ ").replace("/", "").upper()
+            metadata = self._instrument_metadata.get(norm)
+            if metadata is None:
+                if "XAU" in norm or "GOLD" in norm:
+                    metadata = InstrumentRiskMetadata(Decimal("100"))
+                elif "BTC" in norm:
+                    metadata = InstrumentRiskMetadata(Decimal("1"))
+                elif any(cur in norm for cur in ("EUR", "GBP", "USD", "JPY", "AUD", "NZD", "CAD", "CHF")):
+                    metadata = InstrumentRiskMetadata(Decimal("100000"))
+                else:
+                    metadata = InstrumentRiskMetadata(Decimal("100"))
         specification = payload["instrument"]["specification"]
         if metadata is None or not all(
             specification.get(field) is not None

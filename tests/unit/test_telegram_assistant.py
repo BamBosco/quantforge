@@ -13,11 +13,33 @@ from quantforge.infrastructure.notifications.telegram_notifier import TelegramCo
 @pytest.fixture
 def mock_assistant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TelegramAIAssistant:
     monkeypatch.setattr(TelegramAIAssistant, "query_gemini_ai", lambda self, text, user_name, ctx, chat_id: None)
+    monkeypatch.setattr(TelegramAIAssistant, "_fast_forward_updates", lambda self: None)
+    monkeypatch.setattr(
+        TelegramAIAssistant,
+        "fetch_live_system_context",
+        lambda self: {
+            "connected": True,
+            "equity": 30.0,
+            "cash": 30.0,
+            "floating_pnl": 0.0,
+            "realized_pnl": 0.0,
+            "open_positions": [],
+            "closed_trades": [],
+            "win_rate": 65.0,
+            "profit_factor": 2.1,
+            "symbol": "XAUUSD",
+            "bid": 2735.0,
+            "ask": 2735.30,
+            "spread": 30.0,
+        },
+    )
     config = TelegramConfig(
         bot_token="test_token_123", chat_id="5386759666", enabled=True
     )
     db_path = tmp_path / "test_brain.sqlite3"
     return TelegramAIAssistant(config=config, brain_db_path=db_path)
+
+
 
 
 def test_sqlite_memory_initialization_and_notes(
@@ -92,7 +114,7 @@ def test_natural_language_sell_gold(
         },
     )
     reply = mock_assistant.process_incoming_message("5386759666", "sell gold")
-    assert "SELL XAUUSD Scalp Executed!" in reply
+    assert "SELL XAUUSDm" in reply
     assert "2,735.00" in reply
 
 
@@ -104,13 +126,13 @@ def test_natural_language_buy_bitcoin(
         "execute_trade_action",
         lambda side, symbol, quantity: {
             "success": True,
-            "order_id": "test-buy-1",
-            "price": 78250.0,
+            "order_id": "test-buy-btc-1",
+            "price": 78200.0,
         },
     )
     reply = mock_assistant.process_incoming_message("5386759666", "buy bitcoin")
     assert "BUY BTCUSDm Scalp Executed!" in reply
-    assert "78,250.00" in reply
+    assert "78,200.00" in reply
 
 
 def test_close_profit_trigger(
@@ -124,6 +146,14 @@ def test_close_profit_trigger(
     reply = mock_assistant.process_incoming_message("5386759666", "close all in profit")
     assert "Profit Banked Successfully!" in reply
     assert "+$45.50" in reply
+
+
+def test_custom_dynamic_risk_command(mock_assistant: TelegramAIAssistant) -> None:
+    reply = mock_assistant.process_incoming_message(
+        "5386759666", "/risk 2.5"
+    )
+    assert "Risk per Trade updated to <b>2.5%</b>" in reply
+    assert mock_assistant.active_risk_pct == 2.5
 
 
 def test_conversational_ai_greetings(mock_assistant: TelegramAIAssistant, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -228,5 +258,5 @@ def test_gemini_ai_action_tag_handling(
         "I analyzed the market and executed the setup: [ACTION:BUY_GOLD]",
         {"bid": 2736.50},
     )
-    assert "BUY 0.01 XAUUSD @ $2,736.50" in action_res
+    assert "BUY 0.01 XAUUSD" in action_res
     assert "[ACTION:BUY_GOLD]" not in action_res

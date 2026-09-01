@@ -65,3 +65,63 @@ def test_candidate_007_btcusd_trades_on_saturday() -> None:
     assert signal.entry_price == Decimal("65805.00")
     assert signal.stop_loss_price < signal.entry_price
     assert signal.target_price > signal.entry_price
+
+
+def test_candidate_007_gold_trades_on_sunday_evening_open() -> None:
+    # Sunday, Aug 30, 2026 at 18:30 NY (Market OPEN for Gold)
+    sunday_open_ny = datetime(2026, 8, 30, 18, 30, tzinfo=NEW_YORK)
+    assert sunday_open_ny.weekday() == 6  # 6 = Sunday
+
+    strategy = Candidate007Strategy(settings=Candidate007Settings.for_gold_active_scalper())
+
+    # Feed 60 upward trending warmup bars on Gold
+    start_time = sunday_open_ny - timedelta(minutes=60)
+    for i in range(60):
+        bar_time = start_time + timedelta(minutes=i)
+        price = Decimal("2730.00") + (Decimal(str(i)) * Decimal("0.20"))
+        strategy.update_bar(make_bar(bar_time, price, high_diff=Decimal("1.0"), low_diff=Decimal("1.0")))
+
+    # Evaluate breakout market tick on Sunday evening
+    market = MarketFact(
+        instrument="XAUUSD",
+        bid=Decimal("2745.00"),
+        ask=Decimal("2745.30"),
+        observed_at=sunday_open_ny,
+        value_per_price_unit_per_lot=Decimal("100"),
+        minimum_volume=Decimal("0.01"),
+        maximum_volume=Decimal("100.0"),
+        volume_step=Decimal("0.01"),
+    )
+
+    signal = strategy.evaluate(market, evaluated_at=sunday_open_ny)
+    assert signal is not None
+    assert signal.instrument == "XAUUSD"
+    assert signal.side == "buy"
+    assert signal.entry_price == Decimal("2745.30")
+
+
+def test_candidate_007_gold_blocked_before_sunday_1800_ny() -> None:
+    # Sunday, Aug 30, 2026 at 14:00 NY (Market CLOSED for Gold before 18:00)
+    sunday_closed_ny = datetime(2026, 8, 30, 14, 0, tzinfo=NEW_YORK)
+    strategy = Candidate007Strategy(settings=Candidate007Settings.for_gold_active_scalper())
+
+    start_time = sunday_closed_ny - timedelta(minutes=60)
+    for i in range(60):
+        bar_time = start_time + timedelta(minutes=i)
+        price = Decimal("2730.00") + (Decimal(str(i)) * Decimal("0.20"))
+        strategy.update_bar(make_bar(bar_time, price, high_diff=Decimal("1.0"), low_diff=Decimal("1.0")))
+
+    market = MarketFact(
+        instrument="XAUUSD",
+        bid=Decimal("2745.00"),
+        ask=Decimal("2745.30"),
+        observed_at=sunday_closed_ny,
+        value_per_price_unit_per_lot=Decimal("100"),
+        minimum_volume=Decimal("0.01"),
+        maximum_volume=Decimal("100.0"),
+        volume_step=Decimal("0.01"),
+    )
+
+    signal = strategy.evaluate(market, evaluated_at=sunday_closed_ny)
+    assert signal is None
+

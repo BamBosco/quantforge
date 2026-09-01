@@ -34,13 +34,34 @@ BRIDGE_LATEST_URL = "http://127.0.0.1:8765/v1/mt5/latest"
 BRIDGE_RESET_URL = "http://127.0.0.1:8765/v1/mt5/reset"
 BRIDGE_TOKEN = "quantforge-live-token-2026"
 
-PRICE_HISTORY: collections.deque[dict[str, Any]] = collections.deque(maxlen=180)
+PRICE_HISTORIES: dict[str, collections.deque[dict[str, Any]]] = {
+    "XAUUSDm": collections.deque(maxlen=180),
+    "BTCUSDm": collections.deque(maxlen=180),
+}
+LATEST_QUOTES: dict[str, dict[str, Any]] = {
+    "XAUUSDm": {
+        "bid": 0.0,
+        "ask": 0.0,
+        "spread_points": 0.0,
+        "tick_time": "--:--:--",
+        "symbol": "XAUUSDm",
+        "is_live": False,
+    },
+    "BTCUSDm": {
+        "bid": 0.0,
+        "ask": 0.0,
+        "spread_points": 0.0,
+        "tick_time": "--:--:--",
+        "symbol": "BTCUSDm",
+        "is_live": False,
+    },
+}
 SNAPSHOT_COUNT = 0
-LAST_BID = 0.0
-LAST_ASK = 0.0
 TICK_COUNT = 0
 START_TIME = time.time()
 INITIAL_BALANCE = 30.0
+PEAK_PROFIT_TRACKER: dict[str, float] = {}
+
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -257,6 +278,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       border-radius: 9px; padding: 11px 14px; color: white; font-family: var(--font-mono);
       font-size: 0.88rem;
     }
+    /* Asset Switcher Tabs */
+    .asset-selector-pill {
+      display: inline-flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 4px;
+    }
+    .asset-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 7px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .asset-tab:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .asset-tab.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 10px var(--primary-glow);
+    }
 
     /* Toast Notification Container */
     #toast-container {
@@ -402,9 +455,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <!-- ROUTE 1: /#/cockpit -->
       <div id="view-cockpit" class="page-view">
         <div class="panel">
-          <div class="panel-header">
-            <div class="panel-title">
-              <span>📈 Real-Time Price Action (<span id="txt-chart-symbol">#BTCUSD</span>)</span>
+          <div class="panel-header" style="flex-wrap: wrap; gap: 0.75rem;">
+            <div class="panel-title" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+              <span>📈 Real-Time Price Action</span>
+              <div class="asset-selector-pill">
+                <button class="asset-tab active" id="tab-gold" onclick="switchAsset('XAUUSDm')">
+                  <span>🥇 Gold (XAUUSDm)</span>
+                </button>
+                <button class="asset-tab" id="tab-btc" onclick="switchAsset('BTCUSDm')">
+                  <span>₿ Bitcoin (BTCUSDm)</span>
+                </button>
+              </div>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
               <span id="txt-spread" style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">Spread: $0.00</span>
@@ -729,6 +790,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     let audioCtx = null;
     let soundEnabled = true;
+    window.selectedAsset = 'XAUUSDm'; // Default to Gold
+    window.latestDashboardData = null;
 
     function getAudioContext() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -795,7 +858,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 100 },
+        animation: { duration: 80 },
         plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } } } },
         scales: {
           x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 } } },
@@ -804,44 +867,110 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }
     });
 
+    function switchAsset(asset) {
+      window.selectedAsset = asset;
+      const goldTab = document.getElementById('tab-gold');
+      const btcTab = document.getElementById('tab-btc');
+      if (goldTab) goldTab.classList.toggle('active', asset === 'XAUUSDm');
+      if (btcTab) btcTab.classList.toggle('active', asset === 'BTCUSDm');
+
+      const isGold = asset === 'XAUUSDm';
+      const execAssetEl = document.getElementById('txt-exec-asset');
+      if (execAssetEl) execAssetEl.innerText = isGold ? 'XAUUSDm (Gold)' : 'BTCUSDm (Bitcoin)';
+
+      const sidebarAssetEl = document.getElementById('txt-sidebar-asset');
+      if (sidebarAssetEl) sidebarAssetEl.innerText = isGold ? 'XAUUSDm (Gold)' : 'BTCUSDm (Bitcoin)';
+      const sidebarSessionEl = document.getElementById('txt-sidebar-session');
+      if (sidebarSessionEl) sidebarSessionEl.innerText = isGold ? 'M1 • London/NY Session' : 'M1 • 24/7 Crypto Session';
+
+      if (window.latestDashboardData) {
+        renderPriceChart(window.latestDashboardData);
+        updateAssetPriceHeader(window.latestDashboardData);
+      }
+
+      showToast(`Switched view to <b>${isGold ? '🥇 Gold (XAUUSDm)' : '₿ Bitcoin (BTCUSDm)'}</b>`, 'info');
+    }
+
+    function renderPriceChart(data) {
+      const asset = window.selectedAsset || 'XAUUSDm';
+      const histories = data.price_histories || {};
+      const history = histories[asset] || [];
+
+      if (history && history.length > 0) {
+        priceChart.data.labels = history.map(p => p.time);
+        priceChart.data.datasets[0].data = history.map(p => p.bid);
+        priceChart.data.datasets[1].data = history.map(p => p.ask);
+        priceChart.data.datasets[0].label = `${asset} Bid ($)`;
+        priceChart.data.datasets[1].label = `${asset} Ask ($)`;
+        priceChart.update('none');
+      } else {
+        const q = (data.quotes && data.quotes[asset]) || { bid: 0.0, ask: 0.0 };
+        if (q.bid > 0) {
+          priceChart.data.labels = ['Live'];
+          priceChart.data.datasets[0].data = [q.bid];
+          priceChart.data.datasets[1].data = [q.ask];
+          priceChart.data.datasets[0].label = `${asset} Bid ($)`;
+          priceChart.data.datasets[1].label = `${asset} Ask ($)`;
+          priceChart.update('none');
+        }
+      }
+    }
+
     let prevBid = 0.0;
     let lastEventCount = 0;
+
+    function updateAssetPriceHeader(data) {
+      const asset = window.selectedAsset || 'XAUUSDm';
+      const q = (data.quotes && data.quotes[asset]) || data.live_quote;
+      const priceEl = document.getElementById('val-price');
+      const spreadEl = document.getElementById('txt-spread');
+
+      if (q && q.bid && q.bid > 0) {
+        if (priceEl) {
+          priceEl.innerText = '$' + q.bid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          if (prevBid > 0 && q.bid !== prevBid) {
+            priceEl.style.color = q.bid > prevBid ? 'var(--accent-green)' : 'var(--accent-red)';
+            setTimeout(() => { priceEl.style.color = '#60a5fa'; }, 350);
+          }
+          prevBid = q.bid;
+        }
+        if (spreadEl) {
+          const dSpread = (q.ask && q.bid) ? Math.abs(q.ask - q.bid) : (asset === 'XAUUSDm' ? 0.35 : 1.00);
+          spreadEl.innerText = 'Spread: $' + dSpread.toFixed(2);
+        }
+      } else {
+        if (priceEl && (!prevBid || prevBid <= 0)) {
+          priceEl.innerText = 'Listening...';
+        }
+        if (spreadEl) {
+          spreadEl.innerText = 'Spread: --';
+        }
+      }
+    }
 
     async function fetchState() {
       try {
         const resp = await fetch('/api/state');
         if (!resp.json) return;
         const data = await resp.json();
+        window.latestDashboardData = data;
 
         const badgeConn = document.getElementById('badge-connection');
-        const priceEl = document.getElementById('val-price');
         const sidebarAssetEl = document.getElementById('txt-sidebar-asset');
         const sidebarSessionEl = document.getElementById('txt-sidebar-session');
 
-        if (data.live_quote) {
+        if (data.live_quote && data.live_quote.is_live && data.live_quote.bid > 0) {
           const q = data.live_quote;
           badgeConn.className = "badge-status badge-live";
-          badgeConn.innerHTML = `<div class="badge-pulse"></div> Live MT5 (${q.symbol})`;
-
-          if (priceEl && q.bid) {
-            priceEl.innerText = '$' + q.bid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            if (prevBid > 0 && q.bid !== prevBid) {
-              priceEl.style.color = q.bid > prevBid ? 'var(--accent-green)' : 'var(--accent-red)';
-              setTimeout(() => { priceEl.style.color = '#60a5fa'; }, 350);
-            }
-          }
-          if (sidebarAssetEl) sidebarAssetEl.innerText = q.symbol + (q.symbol.toUpperCase().includes('BTC') ? ' (Bitcoin)' : ' (Gold)');
-          if (sidebarSessionEl) sidebarSessionEl.innerText = q.symbol.toUpperCase().includes('BTC') ? 'M1 • 24/7 Crypto Session' : 'M1 • London/NY Session';
-
-          prevBid = q.bid;
-          const dSpread = (q.ask && q.bid) ? (q.ask - q.bid) : 0.20; 
-          document.getElementById('txt-spread').innerText = 'Spread: $' + dSpread.toFixed(2);
-          document.getElementById('txt-chart-symbol').innerText = q.symbol;
+          badgeConn.innerHTML = `<div class="badge-pulse"></div> Live MT5 (${data.active_symbol || q.symbol})`;
           document.getElementById('txt-tick-velocity').innerText = '⚡ ' + (data.tick_rate || '1.0') + ' ticks/s';
         } else {
           badgeConn.className = "badge-status badge-waiting";
           badgeConn.innerHTML = `<div class="badge-pulse" style="background:#f59e0b;"></div> MT5 Connecting...`;
         }
+
+        updateAssetPriceHeader(data);
+        renderPriceChart(data);
 
         const baseEquity = 30.0;
         const equity = data.equity || baseEquity;
@@ -880,8 +1009,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const pnlClass = pnl >= 0 ? 'profit-pos' : 'profit-neg';
             const sideBadge = pos.side.toLowerCase() === 'buy' ? '<span class="badge-buy">BUY</span>' : '<span class="badge-sell">SELL</span>';
             const shortId = (pos.order_id || '').substring(0, 8);
+            const assetBadge = pos.instrument && pos.instrument.includes('BTC') ? '₿' : '🥇';
             return `<tr>
-              <td>#${shortId}</td>
+              <td>${assetBadge} #${shortId}</td>
               <td>${sideBadge}</td>
               <td>${pos.quantity}</td>
               <td>$${pos.open_price.toLocaleString('en-US', {minimumFractionDigits:2})}</td>
@@ -950,13 +1080,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
               const openT = (t.opened_at || '').substring(11, 19);
               const closeT = (t.closed_at || '').substring(11, 19);
               const shortTicket = (t.order_id || '').substring(0, 10);
-              const reasonBadge = t.status === 'target_reached' 
-                ? '<span style="color: var(--accent-green); font-weight:700;">🎯 Quick Strike (+Gain)</span>'
-                : (t.status === 'breakeven' 
-                  ? '<span style="color: #60a5fa; font-weight:700;">🛡️ Breakeven Exit</span>'
-                  : (pnl >= 0 
-                    ? '<span style="color: var(--accent-green); font-weight:700;">💰 Profit Banked (+Gain)</span>' 
-                    : '<span style="color: var(--accent-red); font-weight:700;">🛑 Stop Loss Exit (-Risk)</span>'));
+              const reasonBadge = (t.status === 'target_reached' && pnl >= 0) 
+                ? '<span style="color: var(--accent-green); font-weight:700;">🎯 Target Profit Hit (+Gain)</span>'
+                : (pnl >= 0 
+                  ? '<span style="color: var(--accent-green); font-weight:700;">💰 Profit Banked (+Gain)</span>' 
+                  : '<span style="color: var(--accent-red); font-weight:700;">🛑 Stop Loss Exit (-Risk)</span>');
               return `<tr>
                 <td>#${shortTicket}</td>
                 <td><strong>${t.instrument}</strong></td>
@@ -972,13 +1100,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }).join('');
             histTbody.innerHTML = histRows;
           }
-        }
-
-        if (data.price_history && data.price_history.length > 0) {
-          priceChart.data.labels = data.price_history.map(p => p.time);
-          priceChart.data.datasets[0].data = data.price_history.map(p => p.bid);
-          priceChart.data.datasets[1].data = data.price_history.map(p => p.ask);
-          priceChart.update('none');
         }
 
         if (data.events && data.events.length > 0) {
@@ -1068,10 +1189,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     async function executeTrade(side) {
       if (isExecutingTrade) return;
       isExecutingTrade = true;
-      const buyBtn = document.getElementById('btn-buy');
-      const sellBtn = document.getElementById('btn-sell');
-      if (buyBtn) buyBtn.style.opacity = '0.5';
-      if (sellBtn) sellBtn.style.opacity = '0.5';
+      const targetAsset = window.selectedAsset || 'XAUUSDm';
 
       try {
         if (side === 'buy') playBuySound();
@@ -1079,12 +1197,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const resp = await fetch('/api/execute_trade', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ side: side, symbol: 'BTCUSDm', quantity: 0.01 })
+          body: JSON.stringify({ side: side, symbol: targetAsset, quantity: 0.01 })
         });
         const res = await resp.json();
         if (res.success) {
           playFillSound();
-          showToast(`🟢 <b>${side.toUpperCase()} 0.01 Lot Executed</b> @ Market`, 'success');
+          showToast(`🟢 <b>${side.toUpperCase()} 0.01 ${targetAsset} Executed</b> @ Market ($${Number(res.price).toLocaleString('en-US', {minimumFractionDigits:2})})`, 'success');
           fetchState();
         } else {
           showToast(`⚠️ Execution rejected: ${res.error || 'Check risk limits'}`, 'error');
@@ -1094,8 +1212,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       } finally {
         setTimeout(() => {
           isExecutingTrade = false;
-          if (buyBtn) buyBtn.style.opacity = '1';
-          if (sellBtn) sellBtn.style.opacity = '1';
         }, 1200);
       }
     }
@@ -1152,7 +1268,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         const resp = await fetch('/api/reset_journal', { method: 'POST' });
         const res = await resp.json();
         if (res.success) {
-          showToast('🔄 <b>All Positions Closed & Reset to $30.00!</b>', 'success');
+          showToast('🔄 <b>All Positions Closed & Session Reset to $30.00!</b>', 'success');
           fetchState();
         }
       } catch (e) {
@@ -1190,8 +1306,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/reset_journal":
             try:
-                global PRICE_HISTORY, SNAPSHOT_COUNT, TICK_COUNT, START_TIME
-                PRICE_HISTORY = []
+                global SNAPSHOT_COUNT, TICK_COUNT, START_TIME
+                PRICE_HISTORIES["XAUUSDm"].clear()
+                PRICE_HISTORIES["BTCUSDm"].clear()
                 SNAPSHOT_COUNT = 0
                 TICK_COUNT = 0
                 START_TIME = time.time()
@@ -1225,7 +1342,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
         elif parsed.path == "/api/test_telegram":
             try:
                 notifier = TelegramNotifier()
-                last_p = f"${LAST_BID:,.2f}" if LAST_BID > 0 else "Active"
+                gold_p = LATEST_QUOTES["XAUUSDm"]["bid"]
+                last_p = f"${gold_p:,.2f}" if gold_p > 0 else "Active"
                 sent = notifier.send_message(
                     f"⚡ <b>QuantForge Live System Ping</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1251,18 +1369,35 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 content_length = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(content_length)) if content_length > 0 else {}
                 side = str(body.get("side", "buy")).lower()
-                sym = str(body.get("symbol", "BTCUSDm"))
+                sym = str(body.get("symbol", "XAUUSDm"))
                 qty = float(body.get("quantity", 0.01))
 
-                cur_price = LAST_ASK if side == "buy" else LAST_BID
+                is_btc = "BTC" in sym.upper()
+                quote_key = "BTCUSDm" if is_btc else "XAUUSDm"
+                latest_quotes = self.get_state().get("latest_quotes", {})
+                quote_dict = latest_quotes.get(quote_key, {}) if isinstance(latest_quotes, dict) else {}
+                cur_price = float(quote_dict.get("ask" if side == "buy" else "bid", 0.0))
                 if cur_price <= 0:
-                    cur_price = 78250.0
+                    try:
+                        req = urllib.request.Request(BRIDGE_LATEST_URL, headers={"Authorization": f"Bearer {BRIDGE_TOKEN}"})
+                        with urllib.request.urlopen(req, timeout=1.0) as resp:
+                            if resp.status == 200:
+                                payload = json.loads(resp.read().decode("utf-8"))
+                                q_live = payload.get("quote", {})
+                                cur_price = float(q_live.get("ask" if side == "buy" else "bid", 0.0))
+                    except Exception:
+                        pass
+
+                if cur_price <= 0:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"success": False, "error": "Waiting for live market tick from MT5"}).encode("utf-8"))
+                    return
 
                 order_id = f"qf-{int(time.time()*1000)}"
-                is_btc = "BTC" in sym.upper()
-                # Quick Strike Scalper: Tight Risk ($0.80 - $1.00) : Direct $1.50 Profit Target
-                sl_dist = 80.0 if is_btc else 1.00
-                tp_dist = 150.0 if is_btc else 1.50
+                sl_dist = 80.0 if is_btc else 1.50
+                tp_dist = 150.0 if is_btc else 4.50
                 sl_price = cur_price - sl_dist if side == "buy" else cur_price + sl_dist
                 tp_price = cur_price + tp_dist if side == "buy" else cur_price - tp_dist
 
@@ -1297,7 +1432,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         "entry_price": cur_price,
                         "stop_loss_price": sl_price,
                         "target_price": tp_price,
-                        "rationale": "Manual Cockpit Execution (Tight SL : 2.5R TP)",
+                        "rationale": f"Manual Cockpit Execution ({sym})",
                     }
                     ch1 = hashlib.sha256(json.dumps(intent_payload).encode()).hexdigest()
                     conn.execute(
@@ -1401,11 +1536,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                 continue
                             pnl = float(pos.get("floating_pnl", 0.0))
                             total_realized += pnl
-                            cp = float(pos.get("current_price", LAST_BID))
+                            is_btc = "BTC" in pos.get("instrument", "").upper()
+                            q_key = "BTCUSDm" if is_btc else "XAUUSDm"
+                            cp = float(pos.get("current_price", LATEST_QUOTES[q_key]["bid"]))
                             ep = float(pos.get("open_price", cp))
                             exit_payload = {
                                 "order_id": oid,
-                                "instrument": pos.get("instrument", "BTCUSDm"),
+                                "instrument": pos.get("instrument", "XAUUSDm"),
                                 "side": "sell" if pos.get("side") == "buy" else "buy",
                                 "quantity": float(pos.get("quantity", 0.01)),
                                 "open_price": ep,
@@ -1429,13 +1566,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                     "http://127.0.0.1:8765/v1/mt5/orders/enqueue_test",
                                     data=json.dumps({
                                         "order_id": f"close-{oid}-{int(time.time()*1000)}",
-                                        "symbol": pos.get("instrument", "BTCUSDm"),
+                                        "symbol": pos.get("instrument", "XAUUSDm"),
                                         "side": "close",
                                         "volume": float(pos.get("quantity", 0.01)),
                                         "ticket": int(oid) if oid.isdigit() else 0,
                                     }).encode("utf-8"),
                                     headers={"Authorization": f"Bearer {BRIDGE_TOKEN}", "Content-Type": "application/json"},
                                     method="POST",
+                                Chadwick="close",
                                 )
                                 with urllib.request.urlopen(close_req, timeout=1.0):
                                     pass
@@ -1489,12 +1627,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                 continue
                             pnl = float(pos.get("floating_pnl", 0.0))
                             total_realized += pnl
-                            cp = float(pos.get("current_price", LAST_BID))
+                            is_btc = "BTC" in pos.get("instrument", "").upper()
+                            q_key = "BTCUSDm" if is_btc else "XAUUSDm"
+                            cp = float(pos.get("current_price", LATEST_QUOTES[q_key]["bid"]))
                             ep = float(pos.get("open_price", cp))
                             exit_payload = {
                                 "order_id": oid,
-                                "instrument": pos.get("instrument", "BTCUSDm"),
-                                "side": "sell" if pos.get("side") == "buy" else "buy",
+                                "instrument": pos.get("instrument", "XAUUSDm"),
+                                "side": pos.get("side", "buy"),
                                 "quantity": float(pos.get("quantity", 0.01)),
                                 "open_price": ep,
                                 "price": cp,
@@ -1517,7 +1657,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                                     "http://127.0.0.1:8765/v1/mt5/orders/enqueue_test",
                                     data=json.dumps({
                                         "order_id": f"close-{oid}-{int(time.time()*1000)}",
-                                        "symbol": pos.get("instrument", "BTCUSDm"),
+                                        "symbol": pos.get("instrument", "XAUUSDm"),
                                         "side": "close",
                                         "volume": float(pos.get("quantity", 0.01)),
                                         "ticket": int(oid) if oid.isdigit() else 0,
@@ -1560,9 +1700,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def get_state(self) -> dict[str, object]:
-        global SNAPSHOT_COUNT, LAST_BID, LAST_ASK, TICK_COUNT, START_TIME
-        live_quote = None
+        global SNAPSHOT_COUNT, TICK_COUNT, START_TIME
         raw_mt5_positions = []
+        active_sym_key = "XAUUSDm"
 
         # 1. Fetch real-time snapshot directly from running MT5 live bridge
         try:
@@ -1575,47 +1715,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     payload = json.loads(resp.read().decode("utf-8"))
                     q = payload.get("quote", {})
                     if q:
+                        raw_sym = str(payload.get("instrument", {}).get("broker_symbol", "XAUUSDm"))
+                        active_sym_key = "BTCUSDm" if "BTC" in raw_sym.upper() else "XAUUSDm"
                         bid = float(q.get("bid", 0.0))
                         ask = float(q.get("ask", 0.0))
                         obs_time = payload.get("observed_at_utc", "")
-                        time_str = obs_time[11:19] if len(obs_time) >= 19 else "Live"
-                        live_quote = {
+                        time_str = obs_time[11:19] if len(obs_time) >= 19 else datetime.now().strftime("%H:%M:%S")
+
+                        quote_obj = {
                             "bid": bid,
                             "ask": ask,
                             "spread_points": float(q.get("spread_points", 0.0)),
                             "tick_time": time_str,
-                            "symbol": payload.get("instrument", {}).get("broker_symbol", "#BTCUSD"),
+                            "symbol": raw_sym,
+                            "is_live": bid > 0 and ask > 0,
                         }
+                        LATEST_QUOTES[active_sym_key] = quote_obj
                         SNAPSHOT_COUNT += 1
                         TICK_COUNT += 1
 
+                        hist = PRICE_HISTORIES[active_sym_key]
                         if (
-                            not PRICE_HISTORY
-                            or PRICE_HISTORY[-1]["bid"] != bid
-                            or PRICE_HISTORY[-1]["ask"] != ask
-                            or PRICE_HISTORY[-1]["time"] != time_str
+                            not hist
+                            or hist[-1]["bid"] != bid
+                            or hist[-1]["ask"] != ask
+                            or hist[-1]["time"] != time_str
                         ):
-                            PRICE_HISTORY.append({"time": time_str, "bid": bid, "ask": ask})
+                            hist.append({"time": time_str, "bid": bid, "ask": ask})
 
-                        LAST_BID = bid
-                        LAST_ASK = ask
                         raw_mt5_positions = payload.get("positions", [])
         except Exception:
             pass
 
-        # Instant non-blocking fallback if local MT5 EA is reconnecting
-        if not live_quote:
-            fallback_bid = LAST_BID if LAST_BID > 0 else 78150.0
-            fallback_ask = LAST_ASK if LAST_ASK > 0 else 78151.0
-            live_quote = {
-                "bid": fallback_bid,
-                "ask": fallback_ask,
-                "spread_points": round(fallback_ask - fallback_bid, 2),
-                "tick_time": datetime.now().strftime("%H:%M:%S"),
-                "symbol": "#BTCUSD (Live MT5 Sync)",
-            }
-            if not PRICE_HISTORY:
-                PRICE_HISTORY.append({"time": live_quote["tick_time"], "bid": fallback_bid, "ask": fallback_ask})
+        live_quote = LATEST_QUOTES[active_sym_key]
 
         # Calculate tick rate
         elapsed = max(1.0, time.time() - START_TIME)
@@ -1639,6 +1771,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 rows = cursor.fetchall()
                 conn.close()
 
+                intents_by_intent_id = {}
+                intents_by_order_id = {}
+
                 for seq, event_type, occurred_at_utc, payload_json in rows:
                     payload = json.loads(payload_json)
                     events.append(
@@ -1650,23 +1785,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
                         }
                     )
 
-                    if event_type == "ExecutionOutcomeRecorded":
+                    if event_type == "TradeIntentGenerated":
+                        iid = payload.get("event_id") or payload.get("intent_id")
+                        if iid:
+                            intents_by_intent_id[iid] = payload
+                    elif event_type == "OrderApproved":
+                        oid = payload.get("event_id")
+                        iid = payload.get("intent_id")
+                        if oid and iid and iid in intents_by_intent_id:
+                            intents_by_order_id[oid] = intents_by_intent_id[iid]
+                    elif event_type == "ExecutionOutcomeRecorded":
                         st = payload.get("status")
                         oid = payload.get("order_id")
                         qty = float(payload.get("quantity", 0.0) or 0.0)
                         p_price = float(payload.get("price", 0.0) or 0.0)
                         side = payload.get("side", "buy")
+                        inst = payload.get("instrument", "XAUUSDm")
+
+                        intent_info = intents_by_order_id.get(oid, {})
+                        sl_val = float(payload.get("stop_loss_price") or intent_info.get("stop_loss_price") or 0.0)
+                        tp_val = float(payload.get("target_price") or intent_info.get("target_price") or 0.0)
 
                         if st == "filled":
                             fills_count += 1
                             open_positions[oid] = {
                                 "order_id": oid,
-                                "instrument": payload.get("instrument", "#BTCUSD"),
+                                "instrument": inst,
                                 "side": side,
                                 "quantity": qty,
                                 "open_price": p_price,
-                                "stop_loss_price": float(payload.get("stop_loss_price") or 0.0),
-                                "target_price": float(payload.get("target_price") or 0.0),
+                                "stop_loss_price": sl_val,
+                                "target_price": tp_val,
                                 "opened_at": occurred_at_utc,
                             }
                         elif st in {"stopped_out", "target_reached", "forced_exit", "breakeven"}:
@@ -1678,7 +1827,9 @@ class DashboardHandler(BaseHTTPRequestHandler):
                             if oid in open_positions:
                                 pos = open_positions.pop(oid)
                                 ep = pos["open_price"]
-                                pnl = payload.get("pnl") if payload.get("pnl") is not None else ((p_price - ep) * qty if pos["side"] == "buy" else (ep - p_price) * qty)
+                                is_pos_btc = "BTC" in pos["instrument"].upper()
+                                c_mult = 1.0 if is_pos_btc else 100.0
+                                pnl = payload.get("pnl") if payload.get("pnl") is not None else ((p_price - ep) * qty * c_mult if pos["side"] == "buy" else (ep - p_price) * qty * c_mult)
                                 pnl = float(pnl)
                                 realized_pnl += pnl
                                 fills_count += 1
@@ -1698,13 +1849,20 @@ class DashboardHandler(BaseHTTPRequestHandler):
                             else:
                                 # Close event for position that entered directly via MT5
                                 ep = float(payload.get("open_price", p_price))
-                                pnl = float(payload.get("pnl", (p_price - ep) * qty if side == "buy" else (ep - p_price) * qty))
+                                is_inst_btc = "BTC" in inst.upper()
+                                c_mult = 1.0 if is_inst_btc else 100.0
+                                intent_side = intents_by_order_id.get(oid, {}).get("side")
+                                pos_side = payload.get("position_side", intent_side or payload.get("side", side))
+                                if payload.get("pnl") is not None:
+                                    pnl = float(payload["pnl"])
+                                else:
+                                    pnl = (p_price - ep) * qty * c_mult if pos_side == "buy" else (ep - p_price) * qty * c_mult
                                 realized_pnl += pnl
                                 fills_count += 1
                                 closed_trades.append({
                                     "order_id": oid or f"pos-{len(closed_trades)+1}",
-                                    "instrument": payload.get("instrument", "#BTCUSD"),
-                                    "side": payload.get("side", side),
+                                    "instrument": inst,
+                                    "side": pos_side,
                                     "quantity": qty,
                                     "open_price": ep,
                                     "exit_price": p_price,
@@ -1728,7 +1886,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     profit = float(mt5_p.get("profit", 0.0))
                     open_positions[ticket_id] = {
                         "order_id": ticket_id,
-                        "instrument": mt5_p.get("symbol", "#BTCUSD"),
+                        "instrument": mt5_p.get("symbol", "XAUUSDm"),
                         "side": str(mt5_p.get("type", "buy")).lower(),
                         "quantity": float(mt5_p.get("volume", 0.01)),
                         "open_price": open_price,
@@ -1739,21 +1897,33 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # Calculate floating PnL on open positions using live quotes & execute automated exits
         floating_pnl = 0.0
         active_positions_list = []
-        cur_bid = live_quote["bid"] if live_quote else 0.0
-        cur_ask = live_quote["ask"] if live_quote else 0.0
         now_eval_utc = datetime.now().isoformat()
         positions_to_close = []
 
         for pos in list(open_positions.values()):
-            cp = cur_bid if pos["side"] == "buy" else cur_ask
+            is_btc = "BTC" in pos.get("instrument", "").upper()
+            q_key = "BTCUSDm" if is_btc else "XAUUSDm"
+            pos_quote = LATEST_QUOTES.get(q_key, {})
+            
+            # Guard against uninitialized / offline quotes
+            if not pos_quote.get("is_live", False) or pos_quote.get("bid", 0.0) <= 0:
+                active_positions_list.append(pos)
+                continue
+
+            cp = pos_quote["bid"] if pos["side"] == "buy" else pos_quote["ask"]
             qty = pos.get("quantity", 0.01)
             ep = pos.get("open_price", 0.0)
-            is_btc = "BTC" in pos.get("instrument", "").upper()
+            contract_mult = 1.0 if is_btc else 100.0
+
+            # Plausibility sanity guard against discontinuous quote jumps
+            if ep > 0 and abs(cp - ep) > (5000.0 if is_btc else 200.0):
+                active_positions_list.append(pos)
+                continue
 
             if "profit" in pos and pos.get("profit") is not None and pos["profit"] != 0.0:
                 pos_pnl = float(pos["profit"])
             elif cp > 0 and ep > 0:
-                pos_pnl = (cp - ep) * qty if pos["side"] == "buy" else (ep - cp) * qty
+                pos_pnl = (cp - ep) * qty * contract_mult if pos["side"] == "buy" else (ep - cp) * qty * contract_mult
             else:
                 pos_pnl = 0.0
 
@@ -1762,38 +1932,51 @@ class DashboardHandler(BaseHTTPRequestHandler):
             pos_copy["floating_pnl"] = pos_pnl
             pos_copy["current_price"] = cp
 
-            # Quick Strike $1.00 - $2.00 Profit Bank Target (Gold & BTC Scalper)
-            # Gold: $1.00 profit (10 pips) / BTC: $1.50 profit ($150 move)
-            sensible_profit_target = 1.50 if is_btc else 1.00
-            be_thresh = 40.0 if is_btc else 0.50
-            be_buffer = 15.0 if is_btc else 0.35
+            # Persistent Peak Profit Tracking across ticks (only tracks positive peaks on non-empty order_id)
+            oid = str(pos.get("order_id", ""))
+            if oid and oid != "":
+                if pos_pnl > 0:
+                    PEAK_PROFIT_TRACKER[oid] = max(PEAK_PROFIT_TRACKER.get(oid, 0.0), pos_pnl)
+                highest_floating = PEAK_PROFIT_TRACKER.get(oid, max(0.0, pos_pnl))
+            else:
+                highest_floating = max(0.0, pos_pnl)
+            pos_copy["peak_profit"] = highest_floating
 
-            sl_dist = 80.0 if is_btc else 1.00
-            tp_dist = 150.0 if is_btc else 1.50
+            # 🛡️ DYNAMIC STEPPED PROFIT FLOOR (CALIBRATED FOR 3.5:1 GOLD TARGETS)
+            locked_floor = None
+            if highest_floating >= 12.00:
+                locked_floor = max(8.00, highest_floating - 3.00)  # Trail $3.00 behind peak on massive runners
+            elif highest_floating >= 8.00:
+                locked_floor = 5.00   # Guaranteed +$5.00 banked
+            elif highest_floating >= 5.00:
+                locked_floor = 2.50   # Guaranteed +$2.50 banked
+            elif highest_floating >= 3.00:
+                locked_floor = 0.50   # Breakeven + spread lock (+0.50 guaranteed, zero risk!)
+
+            # Structural Stop Loss & Extended Take Profit with Gold Breathing Space
+            sl_dist = 120.0 if is_btc else 3.50  # $3.50 protective stop on Gold (35 pips)
+            tp_dist = 250.0 if is_btc else 12.25 # $12.25 (3.5:1) Take Profit on Gold (122.5 pips)
             sl_p = float(pos.get("stop_loss_price") or (ep - sl_dist if pos["side"] == "buy" else ep + sl_dist))
             tp_p = float(pos.get("target_price") or (ep + tp_dist if pos["side"] == "buy" else ep - tp_dist))
 
             pos_copy["stop_loss_price"] = sl_p
             pos_copy["target_price"] = tp_p
+            pos_copy["profit_floor"] = locked_floor
 
-            is_be = (cp - ep >= be_thresh) if pos["side"] == "buy" else (ep - cp >= be_thresh) if ep > 0 else False
-            pos_copy["breakeven_active"] = is_be
-            pos_copy["breakeven_price"] = (ep + be_buffer) if pos["side"] == "buy" else (ep - be_buffer)
-
-            # Auto-Exit Check: Sensible Profit Milestone / TP / Positive BE / SL
+            # Auto-Exit Check: Full TP Hit / Protected Trailing Floor Hit / Initial Stop Loss
             if cp > 0 and ep > 0:
-                if (pos["side"] == "buy" and cp >= tp_p) or (pos["side"] == "sell" and cp <= tp_p) or (pos_pnl >= sensible_profit_target):
-                    positions_to_close.append((pos, "target_reached", "Sensible Profit / Target Reached (+Gain Locked)", cp))
-                elif is_be and ((pos["side"] == "buy" and cp <= ep + be_buffer) or (pos["side"] == "sell" and cp >= ep - be_buffer)):
-                    positions_to_close.append((pos, "breakeven", "Positive Breakeven Hit (+Profit Protected)", cp))
+                if (pos["side"] == "buy" and cp >= tp_p) or (pos["side"] == "sell" and cp <= tp_p):
+                    positions_to_close.append((pos, "target_reached", f"🎯 Full Take Profit Hit (+${pos_pnl:.2f} Max Gain)", cp))
+                elif locked_floor is not None and highest_floating >= 1.00 and pos_pnl <= locked_floor and pos_pnl >= 0.0:
+                    positions_to_close.append((pos, "target_reached", f"🛡️ Protected Profit Floor Hit (+${pos_pnl:.2f} Banked)", cp))
                 elif (pos["side"] == "buy" and cp <= sl_p) or (pos["side"] == "sell" and cp >= sl_p):
-                    positions_to_close.append((pos, "stopped_out", "Protective Stop Loss", cp))
+                    positions_to_close.append((pos, "stopped_out", "🛑 Protective Initial Stop Loss", cp))
                 else:
                     active_positions_list.append(pos_copy)
             else:
                 active_positions_list.append(pos_copy)
 
-        # Execute automated closures into SQLite Journal
+        # Execute automated closures into SQLite Journal and dispatch to MT5 EA
         if positions_to_close and JOURNAL_DB.exists():
             try:
                 import hashlib
@@ -1801,21 +1984,51 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 with conn:
                     for p_obj, st_reason, reason_desc, exit_p in positions_to_close:
                         oid = p_obj["order_id"]
+                        is_p_btc = "BTC" in p_obj.get("instrument", "").upper()
+                        c_mult = 1.0 if is_p_btc else 100.0
+                        ep = p_obj.get("open_price", exit_p)
+                        qty = p_obj.get("quantity", 0.01)
+                        real_trade_pnl = (exit_p - ep) * qty * c_mult if p_obj["side"] == "buy" else (ep - exit_p) * qty * c_mult
+
                         exit_payload = {
                             "order_id": oid,
-                            "instrument": p_obj.get("instrument", "BTCUSDm"),
-                            "side": "sell" if p_obj["side"] == "buy" else "buy",
-                            "quantity": p_obj.get("quantity", 0.01),
+                            "instrument": p_obj.get("instrument", "XAUUSDm"),
+                            "side": p_obj.get("side", "buy"),
+                            "quantity": qty,
+                            "open_price": ep,
                             "price": exit_p,
+                            "pnl": real_trade_pnl,
                             "fee": 0.05,
                             "status": st_reason,
                             "reason": reason_desc,
+                            "opened_at": p_obj.get("opened_at", now_eval_utc),
                         }
                         ch = hashlib.sha256(json.dumps(exit_payload).encode()).hexdigest()
                         conn.execute(
                             "INSERT OR IGNORE INTO event_journal (event_id, event_type, schema_version, occurred_at_utc, correlation_id, causation_id, payload_json, checksum) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                             (f"exit-{oid}-{int(time.time()*1000)}", "ExecutionOutcomeRecorded", 1, now_eval_utc, oid, None, json.dumps(exit_payload), ch),
                         )
+
+                        # Enqueue immediate order close directly to MT5 EA
+                        try:
+                            close_req = urllib.request.Request(
+                                "http://127.0.0.1:8765/v1/mt5/orders/enqueue_test",
+                                data=json.dumps({
+                                    "order_id": f"close-{oid}-{int(time.time()*1000)}",
+                                    "symbol": p_obj.get("instrument", "XAUUSDm"),
+                                    "side": "close",
+                                    "volume": float(qty),
+                                    "ticket": int(oid) if str(oid).isdigit() else 0,
+                                }).encode("utf-8"),
+                                headers={"Authorization": f"Bearer {BRIDGE_TOKEN}", "Content-Type": "application/json"},
+                                method="POST",
+                            )
+                            with urllib.request.urlopen(close_req, timeout=1.0):
+                                pass
+                        except Exception:
+                            pass
+                        # Clean up persistent peak tracker
+                        PEAK_PROFIT_TRACKER.pop(oid, None)
                 conn.close()
 
                 # Dispatch instant alert via Telegram
@@ -1827,11 +2040,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     for p_obj, st_reason, reason_desc, exit_p in positions_to_close:
                         ep = p_obj.get("open_price", 0.0)
                         qty = p_obj.get("quantity", 0.01)
-                        pnl = (exit_p - ep) * qty if p_obj["side"] == "buy" else (ep - exit_p) * qty
+                        is_p_btc = "BTC" in p_obj.get("instrument", "").upper()
+                        c_mult = 1.0 if is_p_btc else 100.0
+                        pnl = (exit_p - ep) * qty * c_mult if p_obj["side"] == "buy" else (ep - exit_p) * qty * c_mult
                         pnl_sign = "+" if pnl >= 0 else ""
                         msg = (
                             f"⚡ <b>Automated Position Exit ({reason_desc})</b>\n\n"
-                            f"📌 <b>Symbol:</b> <code>{p_obj.get('instrument', 'XAUUSD')}</code>\n"
+                            f"📌 <b>Symbol:</b> <code>{p_obj.get('instrument', 'XAUUSDm')}</code>\n"
                             f"🎯 <b>Status:</b> <code>{st_reason.upper()}</code>\n"
                             f"💰 <b>Net PnL:</b> <code>{pnl_sign}${pnl:.2f}</code>\n"
                             f"📊 <b>Exit Price:</b> <code>{exit_p:.2f}</code>"
@@ -1877,11 +2092,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "signals_count": signals,
             "approved_orders": approved,
             "events": events,
-            "total_snapshots": max(SNAPSHOT_COUNT, len(PRICE_HISTORY)),
+            "total_snapshots": max(SNAPSHOT_COUNT, len(PRICE_HISTORIES["XAUUSDm"]) + len(PRICE_HISTORIES["BTCUSDm"])),
             "live_quote": live_quote,
-            "price_history": list(PRICE_HISTORY),
+            "quotes": LATEST_QUOTES,
+            "price_history": list(PRICE_HISTORIES[active_sym_key]),
+            "price_histories": {
+                "XAUUSDm": list(PRICE_HISTORIES["XAUUSDm"]),
+                "BTCUSDm": list(PRICE_HISTORIES["BTCUSDm"]),
+            },
+            "active_symbol": active_sym_key,
             "tick_rate": tick_rate,
         }
+
 
     def log_message(self, format: str, *args: Any) -> None:
         pass
